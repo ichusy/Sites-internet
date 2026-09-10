@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dr Caroline De Vos — ORL à Rhode-Saint-Genèse | Oto-rhino-laryngologiste</title>
+<meta name="description" content="Dr Caroline De Vos, oto-rhino-laryngologiste (ORL) à Rhode-Saint-Genèse (Sint-Genesius-Rode). Consultations oreille, nez, gorge pour toute la famille. Note 4.8/5 sur Google. Prenez rendez-vous au 02 356 50 81.">
+<meta name="keywords" content="ORL Rhode-Saint-Genèse, oto-rhino-laryngologiste Rhode-Saint-Genèse, ORL Sint-Genesius-Rode, médecin ORL, Dr Caroline De Vos, oreille nez gorge">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Dr Caroline De Vos — ORL à Rhode-Saint-Genèse">
+<meta property="og:description" content="Des soins ORL attentifs, pour toute la famille. Cabinet du Dr Caroline De Vos, oto-rhino-laryngologiste à Rhode-Saint-Genèse.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#9E4624">
+
+<!-- Google Fonts : Quicksand (titres) + Nunito (texte), chaleureuses et arrondies -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+  /* ==========================================================
+     VARIABLES — Palette imposée (Pantone TCX) + tons neutres
+     ========================================================== */
+  :root{
+    --potters-clay: #9E4624;      /* couleur principale : titres, accents, CTA */
+    --potters-clay-dark: #833a1c; /* variante hover / active */
+    --brandy-brown: #73362A;      /* secondaire : dégradés, ombres, détails */
+    --aqua-splash: #85CED1;       /* contraste frais : fonds de section, à-plats */
+    --aqua-splash-light: #d9f1f2;
+    --cream: #FBF4EC;             /* blanc cassé — fond principal */
+    --cream-soft: #F3E6D8;        /* beige neutre — fonds de cartes */
+    --ink: #402118;               /* texte foncé chaud (sur fond clair) */
+    --white: #ffffff;
+
+    --font-title: 'Quicksand', sans-serif;
+    --font-body: 'Nunito', sans-serif;
+
+    --radius-lg: 32px;
+    --radius-md: 20px;
+    --shadow-soft: 0 18px 40px -18px rgba(115,54,42,0.35);
+  }
+
+  *{ box-sizing: border-box; margin:0; padding:0; }
+  html{ scroll-behavior: smooth; }
+
+  body{
+    font-family: var(--font-body);
+    color: var(--ink);
+    background: var(--cream);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  img{ max-width:100%; display:block; }
+
+  h1,h2,h3,h4{
+    font-family: var(--font-title);
+    color: var(--potters-clay);
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  a{ text-decoration:none; color:inherit; }
+  ul{ list-style:none; }
+  section{ position:relative; padding: 90px 20px; }
+  .container{ max-width: 1140px; margin:0 auto; }
+
+  .eyebrow{
+    display:inline-block;
+    font-family: var(--font-title);
+    font-weight:600;
+    color: var(--brandy-brown);
+    background: var(--aqua-splash-light);
+    padding: 6px 18px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    letter-spacing: 0.03em;
+    margin-bottom: 16px;
+  }
+
+  .section-title{ font-size: clamp(1.8rem, 3.2vw, 2.6rem); margin-bottom: 14px; }
+  .section-subtitle{ max-width: 640px; color:#5a3a2d; font-size: 1.05rem; }
+  .center{ text-align:center; margin-left:auto; margin-right:auto; }
+
+  /* ==========================================================
+     BOUTONS
+     ========================================================== */
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    font-family: var(--font-title);
+    font-weight:700;
+    font-size: 1rem;
+    padding: 15px 30px;
+    border-radius: 999px;
+    border:none;
+    cursor:pointer;
+    transition: transform .25s ease, box-shadow .25s ease, background .25s ease;
+  }
+  .btn-primary{
+    background: linear-gradient(135deg, var(--potters-clay), var(--brandy-brown));
+    color: var(--white);
+    box-shadow: var(--shadow-soft);
+  }
+  .btn-primary:hover{
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 22px 45px -15px rgba(115,54,42,0.55);
+  }
+  .btn-outline{
+    background: transparent;
+    border: 2px solid var(--potters-clay);
+    color: var(--potters-clay);
+  }
+  .btn-outline:hover{
+    background: var(--potters-clay);
+    color: var(--white);
+    transform: translateY(-3px);
+  }
+  .btn-light{
+    background: var(--white);
+    color: var(--potters-clay);
+  }
+  .btn-light:hover{
+    background: var(--cream);
+    transform: translateY(-3px);
+  }
+
+  /* ==========================================================
+     HEADER
+     ========================================================== */
+  header{
+    position: sticky;
+    top:0;
+    z-index: 100;
+    background: rgba(251,244,236,0.92);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(158,70,36,0.12);
+  }
+  .nav-wrap{
+    max-width:1140px;
+    margin:0 auto;
+    padding: 16px 20px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap: 16px;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  .brand-badge{
+    width:46px; height:46px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--aqua-splash), var(--potters-clay));
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+    box-shadow: 0 6px 16px -6px rgba(115,54,42,0.5);
+  }
+  .brand-badge svg{ width:24px; height:24px; }
+  .brand-text{ font-family: var(--font-title); line-height:1.15; }
+  .brand-text strong{ display:block; font-size:1.05rem; color: var(--potters-clay); }
+  .brand-text span{ font-size:0.8rem; color: var(--brandy-brown); font-weight:600; letter-spacing:0.03em; }
+
+  .nav-cta-desktop{ display:flex; align-items:center; gap:14px; }
+  .phone-link{
+    display:flex; align-items:center; gap:8px;
+    font-family: var(--font-title); font-weight:700;
+    color: var(--brandy-brown);
+  }
+  .phone-link svg{ width:20px; height:20px; flex-shrink:0; }
+
+  /* ==========================================================
+     HERO
+     ========================================================== */
+  .hero{
+    padding: 70px 20px 110px;
+    position: relative;
+    overflow:hidden;
+  }
+  .hero-grid{
+    max-width:1140px;
+    margin:0 auto;
+    display:grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 50px;
+    align-items:center;
+    position:relative;
+    z-index:2;
+  }
+  .hero h1{ font-size: clamp(2.3rem, 4.6vw, 3.4rem); margin-bottom:20px; }
+  .hero h1 .accent{ color: var(--brandy-brown); }
+  .hero p.lead{
+    font-size: 1.15rem;
+    color: #5a3a2d;
+    max-width: 520px;
+    margin-bottom: 30px;
+  }
+  .hero-actions{ display:flex; flex-wrap:wrap; gap:16px; margin-bottom: 30px; }
+  .hero-rating{
+    display:inline-flex; align-items:center; gap:10px;
+    background: var(--white);
+    padding: 10px 18px;
+    border-radius: 999px;
+    box-shadow: var(--shadow-soft);
+    font-weight:700;
+    font-family: var(--font-title);
+  }
+  .hero-rating .stars{ color:#f0a63a; letter-spacing:2px; }
+
+  /* Illustration blob ORL */
+  .hero-visual{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-height: 380px;
+  }
+  .blob-shape{
+    position:absolute;
+    inset:0;
+    width:100%; height:100%;
+  }
+  .hero-illustration{
+    position:relative;
+    width: 300px; height:300px;
+    border-radius: 50% 50% 45% 55% / 55% 45% 55% 45%;
+    background: linear-gradient(135deg, var(--aqua-splash), #a9dee0);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: var(--shadow-soft);
+    animation: blobMorph 10s ease-in-out infinite;
+    z-index:1;
+  }
+  @keyframes blobMorph{
+    0%,100%{ border-radius: 50% 50% 45% 55% / 55% 45% 55% 45%; }
+    50%{ border-radius: 45% 55% 55% 45% / 45% 55% 45% 55%; }
+  }
+  .hero-illustration svg{ width:150px; height:150px; }
+
+  .float-icon{
+    position:absolute;
+    width:64px; height:64px;
+    border-radius: 50%;
+    background: var(--white);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: 0 12px 24px -10px rgba(115,54,42,0.4);
+    animation: floaty 5s ease-in-out infinite;
+  }
+  .float-icon svg{ width:30px; height:30px; }
+  .float-icon.icon-ear{ top: 6%; left: 2%; animation-delay: .2s; background: var(--cream-soft); }
+  .float-icon.icon-nose{ bottom: 10%; left: 12%; animation-delay: 1.4s; }
+  .float-icon.icon-throat{ top: 12%; right: 4%; animation-delay: 0.8s; background: var(--cream-soft); }
+  .float-icon.icon-heart{ bottom: 4%; right: 10%; animation-delay: 2s; }
+
+  @keyframes floaty{
+    0%,100%{ transform: translateY(0px); }
+    50%{ transform: translateY(-16px); }
+  }
+
+  .deco-circle{
+    position:absolute;
+    border-radius:50%;
+    opacity:0.5;
+  }
+
+  /* ==========================================================
+     WAVE DIVIDER
+     ========================================================== */
+  .wave{
+    display:block;
+    width:100%;
+    line-height:0;
+  }
+  .wave svg{ width:100%; height:auto; display:block; }
+
+  /* ==========================================================
+     PRESENTATION
+     ========================================================== */
+  .presentation{
+    background: var(--white);
+  }
+  .presentation-grid{
+    display:grid;
+    grid-template-columns: 0.85fr 1.15fr;
+    gap: 56px;
+    align-items:center;
+  }
+  .doctor-portrait{
+    position:relative;
+    width:100%;
+    max-width: 360px;
+    margin: 0 auto;
+  }
+  .portrait-frame{
+    width:100%;
+    aspect-ratio: 1/1;
+    border-radius: 45% 55% 60% 40% / 50% 45% 55% 50%;
+    background: linear-gradient(150deg, var(--cream-soft), var(--aqua-splash-light));
+    border: 4px solid var(--white);
+    box-shadow: var(--shadow-soft);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color: var(--brandy-brown);
+    font-family: var(--font-title);
+    font-weight:700;
+    text-align:center;
+    padding: 20px;
+  }
+  .portrait-frame .placeholder-note{ font-size:0.85rem; font-weight:600; color:var(--brandy-brown); opacity:0.75; }
+  .rating-badge{
+    position:absolute;
+    bottom: -18px;
+    right: -10px;
+    background: var(--potters-clay);
+    color:var(--white);
+    padding: 12px 18px;
+    border-radius: var(--radius-md);
+    font-family: var(--font-title);
+    box-shadow: var(--shadow-soft);
+    text-align:center;
+  }
+  .rating-badge strong{ display:block; font-size:1.3rem; }
+  .rating-badge span{ font-size:0.75rem; opacity:0.9; }
+
+  .presentation-text p{ margin-bottom: 16px; color:#5a3a2d; }
+  .quote-tag{
+    margin-top: 24px;
+    padding: 18px 22px;
+    background: var(--aqua-splash-light);
+    border-left: 5px solid var(--aqua-splash);
+    border-radius: var(--radius-md);
+    font-style: italic;
+    color: var(--brandy-brown);
+  }
+
+  /* ==========================================================
+     DOMAINES / CARDS
+     ========================================================== */
+  .domains{
+    background: var(--cream);
+  }
+  .cards-grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 30px;
+    margin-top: 50px;
+  }
+  .domain-card{
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    padding: 36px 28px;
+    text-align:center;
+    box-shadow: 0 10px 30px -18px rgba(115,54,42,0.25);
+    transition: transform .3s ease, box-shadow .3s ease;
+  }
+  .domain-card:hover{
+    transform: translateY(-10px);
+    box-shadow: var(--shadow-soft);
+  }
+  .domain-icon{
+    width: 84px; height:84px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .domain-icon svg{ width:40px; height:40px; }
+  .domain-card:nth-child(1) .domain-icon{ background: linear-gradient(135deg, var(--aqua-splash-light), var(--aqua-splash)); }
+  .domain-card:nth-child(2) .domain-icon{ background: linear-gradient(135deg, #f4d9c8, var(--potters-clay)); }
+  .domain-card:nth-child(3) .domain-icon{ background: linear-gradient(135deg, #e9c9bd, var(--brandy-brown)); }
+  .domain-card h3{ margin-bottom:10px; font-size:1.3rem; }
+  .domain-card p{ color:#6b4a3c; font-size:0.95rem; }
+
+  /* ==========================================================
+     POURQUOI CONSULTER
+     ========================================================== */
+  .why{
+    background: linear-gradient(180deg, var(--aqua-splash-light), var(--cream) 70%);
+  }
+  .why-grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 26px;
+    margin-top: 50px;
+  }
+  .why-card{
+    background: var(--white);
+    border-radius: var(--radius-md);
+    padding: 30px 26px;
+    box-shadow: 0 10px 26px -16px rgba(115,54,42,0.2);
+  }
+  .why-card .why-num{
+    font-family: var(--font-title);
+    font-size: 2.2rem;
+    font-weight:700;
+    color: var(--aqua-splash);
+    -webkit-text-stroke: 1px var(--potters-clay);
+    margin-bottom: 10px;
+  }
+  .why-card h3{ font-size: 1.15rem; margin-bottom: 8px; }
+  .why-card p{ color:#6b4a3c; font-size:0.95rem; }
+
+  /* ==========================================================
+     TEMOIGNAGES
+     ========================================================== */
+  .testimonials{ background: var(--white); }
+  .testi-grid{
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 26px;
+    margin-top: 50px;
+  }
+  .testi-card{
+    background: var(--cream-soft);
+    border-radius: var(--radius-lg);
+    padding: 28px 26px;
+    position:relative;
+    box-shadow: 0 10px 26px -18px rgba(115,54,42,0.2);
+  }
+  .testi-card .stars{ color:#f0a63a; letter-spacing:3px; margin-bottom: 14px; display:block; }
+  .testi-card p{ color:#5a3a2d; margin-bottom: 16px; font-style:italic; }
+  .testi-author{ font-family: var(--font-title); font-weight:700; color: var(--brandy-brown); font-size:0.95rem; }
+  .testi-note{ font-size:0.8rem; color:#8a6a5a; }
+
+  /* ==========================================================
+     INFOS PRATIQUES
+     ========================================================== */
+  .practical{ background: var(--cream); }
+  .practical-grid{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    margin-top: 40px;
+    align-items:stretch;
+  }
+  .info-card{
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    padding: 34px;
+    box-shadow: var(--shadow-soft);
+  }
+  .info-row{
+    display:flex;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--cream-soft);
+  }
+  .info-row:last-child{ border-bottom:none; }
+  .info-row .icon-wrap{
+    width:44px; height:44px;
+    border-radius:50%;
+    background: var(--aqua-splash-light);
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+  }
+  .info-row .icon-wrap svg{ width:22px; height:22px; }
+  .info-row h4{ font-size:1rem; margin-bottom:4px; color: var(--brandy-brown); font-family: var(--font-title); }
+  .info-row p{ color:#5a3a2d; font-size:0.95rem; }
+  .info-row .to-complete{
+    display:inline-block;
+    margin-top:4px;
+    font-size:0.78rem;
+    font-weight:700;
+    color: var(--potters-clay);
+    background: var(--aqua-splash-light);
+    padding: 2px 10px;
+    border-radius: 999px;
+  }
+  .map-wrap{
+    border-radius: var(--radius-lg);
+    overflow:hidden;
+    box-shadow: var(--shadow-soft);
+    min-height: 340px;
+  }
+  .map-wrap iframe{ width:100%; height:100%; min-height:340px; border:0; display:block; }
+
+  /* ==========================================================
+     CTA FINAL
+     ========================================================== */
+  .cta-final{
+    background: linear-gradient(135deg, var(--potters-clay), var(--brandy-brown));
+    color: var(--white);
+    text-align:center;
+    overflow:hidden;
+    position:relative;
+  }
+  .cta-final h2{ color: var(--white); font-size: clamp(1.8rem, 3.6vw, 2.6rem); margin-bottom: 16px; }
+  .cta-final p{ max-width:560px; margin: 0 auto 32px; opacity:0.92; font-size:1.05rem; }
+  .cta-final .btn-light{ font-size:1.05rem; padding:18px 36px; }
+  .cta-blob{
+    position:absolute;
+    border-radius:50%;
+    background: rgba(255,255,255,0.08);
+  }
+
+  /* ==========================================================
+     FOOTER
+     ========================================================== */
+  footer{
+    background: #2f170f;
+    color: #f3ddd0;
+    padding: 60px 20px 30px;
+  }
+  .footer-grid{
+    display:grid;
+    grid-template-columns: 1.3fr 1fr 1fr;
+    gap: 40px;
+    max-width:1140px;
+    margin: 0 auto;
+  }
+  footer h4{ color: var(--aqua-splash); font-family: var(--font-title); margin-bottom: 16px; font-size:1.05rem; }
+  footer .brand-text strong{ color: var(--white); }
+  footer .brand-text span{ color: var(--aqua-splash); }
+  footer p, footer li{ color:#e4c9bb; font-size:0.92rem; margin-bottom:8px; }
+  footer a:hover{ color: var(--aqua-splash); }
+  .footer-bottom{
+    max-width:1140px;
+    margin: 40px auto 0;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255,255,255,0.12);
+    font-size: 0.82rem;
+    color:#c9a996;
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:space-between;
+    gap:10px;
+  }
+
+  /* ==========================================================
+     REVEAL ANIMATIONS
+     ========================================================== */
+  .reveal{
+    opacity:0;
+    transform: translateY(28px);
+    transition: opacity .7s ease, transform .7s ease;
+  }
+  .reveal.is-visible{
+    opacity:1;
+    transform: translateY(0);
+  }
+  .reveal-delay-1{ transition-delay: .1s; }
+  .reveal-delay-2{ transition-delay: .2s; }
+  .reveal-delay-3{ transition-delay: .3s; }
+
+  /* ==========================================================
+     MOBILE MENU
+     ========================================================== */
+  .burger{
+    display:none;
+    background:none; border:none; cursor:pointer;
+    width:40px; height:40px;
+    align-items:center; justify-content:center;
+  }
+  .burger span, .burger span::before, .burger span::after{
+    content:'';
+    display:block;
+    width:22px; height:2px;
+    background: var(--potters-clay);
+    position:relative;
+    transition: all .25s ease;
+  }
+  .burger span::before{ position:absolute; top:-7px; }
+  .burger span::after{ position:absolute; top:7px; }
+
+  /* ==========================================================
+     RESPONSIVE
+     ========================================================== */
+  @media (max-width: 980px){
+    .hero-grid{ grid-template-columns: 1fr; }
+    .hero-visual{ order:-1; min-height: 300px; }
+    .presentation-grid{ grid-template-columns: 1fr; }
+    .cards-grid{ grid-template-columns: 1fr 1fr; }
+    .why-grid{ grid-template-columns: 1fr 1fr; }
+    .testi-grid{ grid-template-columns: 1fr 1fr; }
+    .practical-grid{ grid-template-columns: 1fr; }
+    .footer-grid{ grid-template-columns: 1fr 1fr; }
+  }
+
+  @media (max-width: 640px){
+    section{ padding: 60px 18px; }
+    .nav-cta-desktop{ display:none; }
+    .burger{ display:flex; }
+    .cards-grid{ grid-template-columns: 1fr; }
+    .why-grid{ grid-template-columns: 1fr; }
+    .testi-grid{ grid-template-columns: 1fr; }
+    .footer-grid{ grid-template-columns: 1fr; gap: 28px; }
+    .hero-actions{ flex-direction:column; align-items:stretch; }
+    .hero-actions .btn{ justify-content:center; }
+    .hero-illustration{ width:220px; height:220px; }
+    .float-icon{ width:50px; height:50px; }
+    .float-icon svg{ width:24px; height:24px; }
+  }
+
+  /* Mobile dropdown */
+  .mobile-menu{
+    display:none;
+    flex-direction:column;
+    gap:14px;
+    background: var(--white);
+    padding: 20px;
+    border-top: 1px solid var(--cream-soft);
+  }
+  .mobile-menu.open{ display:flex; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     HEADER
+     ============================================================ -->
+<header>
+  <div class="nav-wrap">
+    <div class="brand">
+      <div class="brand-badge" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 3a4 4 0 0 1 4 4v5a4 4 0 0 1-4 4 3 3 0 0 1-3-3"/>
+          <path d="M16 3a4 4 0 0 0-4 4"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <strong>Dr Caroline De Vos</strong>
+        <span>Cabinet ORL — Rhode-Saint-Genèse</span>
+      </div>
+    </div>
+
+    <div class="nav-cta-desktop">
+      <a class="phone-link" href="tel:+3223565081">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        02 356 50 81
+      </a>
+      <a class="btn btn-primary" href="tel:+3223565081">Prendre rendez-vous</a>
+    </div>
+
+    <button class="burger" id="burgerBtn" aria-label="Ouvrir le menu" aria-expanded="false">
+      <span></span>
+    </button>
+  </div>
+
+  <div class="mobile-menu" id="mobileMenu">
+    <a class="phone-link" href="tel:+3223565081">📞 02 356 50 81</a>
+    <a class="btn btn-primary" href="tel:+3223565081" style="justify-content:center;">Prendre rendez-vous</a>
+  </div>
+</header>
+
+<!-- ============================================================
+     HERO
+     ============================================================ -->
+<section class="hero">
+  <!-- décors organiques en fond -->
+  <div class="deco-circle" style="width:420px;height:420px;background:var(--aqua-splash-light);top:-160px;right:-160px;"></div>
+  <div class="deco-circle" style="width:220px;height:220px;background:var(--cream-soft);bottom:-80px;left:-80px;"></div>
+
+  <div class="hero-grid">
+    <div class="hero-text">
+      <span class="eyebrow">Oto-rhino-laryngologiste · Rhode-Saint-Genèse</span>
+      <h1>Des soins ORL <span class="accent">attentifs</span>,<br>pour toute la famille</h1>
+      <p class="lead">
+        Le Dr Caroline De Vos vous accueille à Rhode-Saint-Genèse pour vos
+        consultations d'oreille, de nez et de gorge — enfants, adultes et
+        seniors — dans une approche à la fois humaine, patiente et efficace.
+      </p>
+      <div class="hero-actions">
+        <a href="tel:+3223565081" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          Prendre rendez-vous — 02 356 50 81
+        </a>
+        <a href="#infos" class="btn btn-outline">Infos pratiques</a>
+      </div>
+      <div class="hero-rating">
+        <span class="stars">★★★★★</span>
+        <span>4.8/5 — 16 avis Google</span>
+      </div>
+    </div>
+
+    <div class="hero-visual" role="img" aria-label="Illustration colorée représentant les soins ORL : oreille, nez et gorge">
+      <div class="hero-illustration">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--potters-clay)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 3a4 4 0 0 1 4 4v5a4 4 0 0 1-4 4 3 3 0 0 1-3-3"/>
+          <path d="M16 3a4 4 0 0 0-4 4"/>
+          <circle cx="18" cy="19" r="3"/>
+        </svg>
+      </div>
+      <div class="float-icon icon-ear" title="Oreille">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--potters-clay)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3a4 4 0 0 1 4 4v5a4 4 0 0 1-4 4 3 3 0 0 1-3-3"/><path d="M16 3a4 4 0 0 0-4 4"/></svg>
+      </div>
+      <div class="float-icon icon-nose" title="Nez">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--brandy-brown)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v9a3 3 0 0 0 3 3h0"/><path d="M15 3v9"/><path d="M7 15a5 5 0 0 0 10 0"/></svg>
+      </div>
+      <div class="float-icon icon-throat" title="Gorge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--potters-clay)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M9 13v2a3 3 0 0 0 6 0v-2"/></svg>
+      </div>
+      <div class="float-icon icon-heart" title="Bienveillance">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#e0715a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.6z"/></svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wave" aria-hidden="true">
+  <svg viewBox="0 0 1440 90" preserveAspectRatio="none"><path fill="#ffffff" d="M0,32L60,42.7C120,53,240,75,360,74.7C480,75,600,53,720,48C840,43,960,53,1080,58.7C1200,64,1320,64,1380,64L1440,64L1440,100L0,100Z"></path></svg>
+</div>
+
+<!-- ============================================================
+     PRESENTATION DU DR DE VOS
+     ============================================================ -->
+<section class="presentation" id="presentation">
+  <div class="container presentation-grid">
+    <div class="doctor-portrait reveal">
+      <div class="portrait-frame">
+        <div>
+          <div style="font-size:2.5rem;margin-bottom:10px;">👩‍⚕️</div>
+          Photo du Dr Caroline De Vos
+          <div class="placeholder-note">(photo du cabinet à ajouter)</div>
+        </div>
+      </div>
+      <div class="rating-badge">
+        <strong>4.8/5</strong>
+        <span>16 avis Google</span>
+      </div>
+    </div>
+
+    <div class="presentation-text reveal reveal-delay-1">
+      <span class="eyebrow">À propos</span>
+      <h2 class="section-title">Une approche humaine, patiente et attentive</h2>
+      <p>
+        Le Dr Caroline De Vos exerce comme oto-rhino-laryngologiste (ORL) à
+        Rhode-Saint-Genèse. Les patients qui la consultent soulignent
+        régulièrement sa compétence, sa disponibilité et sa capacité à
+        prendre le temps d'écouter, quel que soit l'âge du patient.
+      </p>
+      <p>
+        Que ce soit pour un enfant, un adulte ou une personne âgée, le
+        cabinet s'attache à offrir un accueil chaleureux et des explications
+        claires, dans un climat de confiance et de bienveillance.
+      </p>
+      <div class="quote-tag">
+        « Compétente, humaine, patiente et efficace » — l'esprit des avis
+        laissés par les patients du cabinet.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     DOMAINES PRIS EN CHARGE
+     ============================================================ -->
+<section class="domains" id="domaines">
+  <div class="container">
+    <div class="center reveal" style="max-width:640px;">
+      <span class="eyebrow">Domaines pris en charge</span>
+      <h2 class="section-title">Oreille, nez et gorge — pour toute la famille</h2>
+      <p class="section-subtitle center">
+        Le cabinet du Dr De Vos assure le suivi et la prise en charge ORL des
+        enfants, adultes et personnes âgées. La liste détaillée des actes
+        pratiqués sera précisée prochainement.
+      </p>
+    </div>
+
+    <div class="cards-grid">
+      <div class="domain-card reveal">
+        <div class="domain-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--potters-clay)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3a4 4 0 0 1 4 4v5a4 4 0 0 1-4 4 3 3 0 0 1-3-3"/><path d="M16 3a4 4 0 0 0-4 4"/></svg>
+        </div>
+        <h3>Oreille</h3>
+        <p>Consultations liées à l'audition et aux affections de l'oreille — <span style="color:var(--potters-clay);font-weight:700;">détails à compléter</span>.</p>
+      </div>
+
+      <div class="domain-card reveal reveal-delay-1">
+        <div class="domain-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--white)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v9a3 3 0 0 0 3 3h0"/><path d="M15 3v9"/><path d="M7 15a5 5 0 0 0 10 0"/></svg>
+        </div>
+        <h3>Nez &amp; sinus</h3>
+        <p>Prise en charge des troubles du nez et des sinus — <span style="color:var(--potters-clay);font-weight:700;">détails à compléter</span>.</p>
+      </div>
+
+      <div class="domain-card reveal reveal-delay-2">
+        <div class="domain-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--white)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M9 13v2a3 3 0 0 0 6 0v-2"/></svg>
+        </div>
+        <h3>Gorge</h3>
+        <p>Suivi des affections de la gorge et de la sphère ORL — <span style="color:var(--potters-clay);font-weight:700;">détails à compléter</span>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     POURQUOI CONSULTER ICI
+     ============================================================ -->
+<section class="why" id="pourquoi">
+  <div class="container">
+    <div class="center reveal" style="max-width:640px;">
+      <span class="eyebrow">Pourquoi ce cabinet</span>
+      <h2 class="section-title">La confiance de vos voisins de Rhode-Saint-Genèse</h2>
+      <p class="section-subtitle center">
+        Une note de 4.8/5 sur 16 avis Google, portée par un accueil chaleureux
+        et une écoute attentive à chaque consultation.
+      </p>
+    </div>
+
+    <div class="why-grid">
+      <div class="why-card reveal">
+        <div class="why-num">★ 4.8</div>
+        <h3>Une note qui reflète la confiance</h3>
+        <p>16 avis Google saluent la compétence et le sérieux du suivi médical proposé.</p>
+      </div>
+      <div class="why-card reveal reveal-delay-1">
+        <div class="why-num">👂</div>
+        <h3>Une écoute attentive</h3>
+        <p>Les patients apprécient un médecin patient, qui prend le temps d'expliquer et de rassurer.</p>
+      </div>
+      <div class="why-card reveal reveal-delay-2">
+        <div class="why-num">⚡</div>
+        <h3>Efficacité &amp; suivi</h3>
+        <p>Un accompagnement compétent et efficace, pour toute la famille, du plus jeune au plus âgé.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     TEMOIGNAGES
+     ============================================================ -->
+<section class="testimonials" id="avis">
+  <div class="container">
+    <div class="center reveal" style="max-width:640px;">
+      <span class="eyebrow">Témoignages</span>
+      <h2 class="section-title">Ce que disent les patients</h2>
+      <p class="section-subtitle center">Extraits représentatifs de l'esprit des avis Google du cabinet (4.8/5).</p>
+    </div>
+
+    <div class="testi-grid">
+      <div class="testi-card reveal">
+        <span class="stars">★★★★★</span>
+        <p>« Une médecin à l'écoute, patiente et très compétente. Je recommande sans hésiter. »</p>
+        <div class="testi-author">Avis patient</div>
+        <div class="testi-note">Extrait représentatif des avis Google</div>
+      </div>
+      <div class="testi-card reveal reveal-delay-1">
+        <span class="stars">★★★★★</span>
+        <p>« Accueil chaleureux et humain, prise en charge rapide et efficace pour toute la famille. »</p>
+        <div class="testi-author">Avis patient</div>
+        <div class="testi-note">Extrait représentatif des avis Google</div>
+      </div>
+      <div class="testi-card reveal reveal-delay-2">
+        <span class="stars">★★★★★</span>
+        <p>« Un vrai sens de l'écoute, on se sent en confiance dès la première consultation. »</p>
+        <div class="testi-author">Avis patient</div>
+        <div class="testi-note">Extrait représentatif des avis Google</div>
+      </div>
+    </div>
+
+    <div class="center reveal" style="margin-top:40px;">
+      <a class="btn btn-outline" href="https://www.google.com/search?q=Dr+Caroline+De+Vos+ORL+avis" target="_blank" rel="noopener">Voir tous les avis Google</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     INFOS PRATIQUES
+     ============================================================ -->
+<section class="practical" id="infos">
+  <div class="container">
+    <div class="center reveal" style="max-width:640px;">
+      <span class="eyebrow">Infos pratiques</span>
+      <h2 class="section-title">Nous rendre visite</h2>
+    </div>
+
+    <div class="practical-grid">
+      <div class="info-card reveal">
+        <div class="info-row">
+          <div class="icon-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--potters-clay)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          </div>
+          <div>
+            <h4>Adresse</h4>
+            <p>Linkebeeksedreef 69<br>1640 Sint-Genesius-Rode (Rhode-Saint-Genèse)</p>
+          </div>
+        </div>
+        <div class="info-row">
+          <div class="icon-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--potters-clay)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          </div>
+          <div>
+            <h4>Téléphone</h4>
+            <p><a href="tel:+3223565081" style="color:var(--potters-clay);font-weight:700;">02 356 50 81</a></p>
+          </div>
+        </div>
+        <div class="info-row">
+          <div class="icon-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--potters-clay)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div>
+            <h4>Horaires de consultation</h4>
+            <p>Sur rendez-vous, uniquement par téléphone.</p>
+            <span class="to-complete">Horaires précis à compléter</span>
+          </div>
+        </div>
+        <div class="info-row">
+          <div class="icon-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="var(--potters-clay)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <div>
+            <h4>Langues parlées</h4>
+            <p>Information à confirmer.</p>
+            <span class="to-complete">Langues à compléter</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="map-wrap reveal reveal-delay-1">
+        <iframe
+          title="Localisation du cabinet du Dr Caroline De Vos"
+          src="https://maps.google.com/maps?q=Linkebeeksedreef%2069%2C%201640%20Sint-Genesius-Rode&z=15&output=embed"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade">
+        </iframe>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     CTA FINAL
+     ============================================================ -->
+<section class="cta-final">
+  <div class="cta-blob" style="width:300px;height:300px;top:-120px;left:-80px;"></div>
+  <div class="cta-blob" style="width:220px;height:220px;bottom:-100px;right:-60px;"></div>
+  <div class="container reveal">
+    <h2>Prenez rendez-vous dès aujourd'hui</h2>
+    <p>Un accueil chaleureux vous attend pour vos soins ORL, à Rhode-Saint-Genèse. Appelez directement le cabinet pour convenir d'un rendez-vous.</p>
+    <a href="tel:+3223565081" class="btn btn-light">📞 02 356 50 81 — Appeler maintenant</a>
+  </div>
+</section>
+
+<!-- ============================================================
+     FOOTER
+     ============================================================ -->
+<footer>
+  <div class="footer-grid">
+    <div>
+      <div class="brand-text" style="margin-bottom:14px;">
+        <strong>Dr Caroline De Vos</strong>
+        <span>Oto-rhino-laryngologiste (ORL)</span>
+      </div>
+      <p>Cabinet ORL à Rhode-Saint-Genèse, pour des soins attentifs adressés à toute la famille.</p>
+    </div>
+    <div>
+      <h4>Contact</h4>
+      <ul>
+        <li>Linkebeeksedreef 69</li>
+        <li>1640 Sint-Genesius-Rode</li>
+        <li><a href="tel:+3223565081">02 356 50 81</a></li>
+      </ul>
+    </div>
+    <div>
+      <h4>Navigation</h4>
+      <ul>
+        <li><a href="#presentation">Le cabinet</a></li>
+        <li><a href="#domaines">Domaines pris en charge</a></li>
+        <li><a href="#avis">Avis patients</a></li>
+        <li><a href="#infos">Infos pratiques</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© <span id="year"></span> Dr Caroline De Vos — Cabinet ORL, Rhode-Saint-Genèse</span>
+    <span>Site à titre informatif — ne remplace pas une consultation médicale</span>
+  </div>
+</footer>
+
+<script>
+  // Année dynamique dans le footer
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  // Menu mobile
+  const burgerBtn = document.getElementById('burgerBtn');
+  const mobileMenu = document.getElementById('mobileMenu');
+  burgerBtn.addEventListener('click', () => {
+    const isOpen = mobileMenu.classList.toggle('open');
+    burgerBtn.setAttribute('aria-expanded', isOpen);
+  });
+  mobileMenu.querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', () => {
+      mobileMenu.classList.remove('open');
+      burgerBtn.setAttribute('aria-expanded', 'false');
+    });
+  });
+
+  // Animations douces au scroll (fade-in + translation)
+  const revealEls = document.querySelectorAll('.reveal');
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  revealEls.forEach(el => observer.observe(el));
+</script>
+
+</body>
+</html>
