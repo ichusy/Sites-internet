@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bronzi Osteria Italiana — Restaurant italien à Waterloo | Pâtes &amp; Pizza au feu de bois</title>
+<meta name="description" content="Bronzi Osteria Italiana, restaurant italien à Waterloo (Chaussée de Bruxelles 192). Pâtes fraîches, pizza Bronzi Al Tartufo, cadre chaleureux. Note 4.7/5 (340 avis). Réservez au 02 687 43 84.">
+<meta name="keywords" content="restaurant italien Waterloo, osteria Waterloo, pizzeria Waterloo, pâtes Waterloo, Bronzi Osteria Italiana, restaurant italien Chaussée de Bruxelles">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#1A1815">
+<link rel="canonical" href="https://www.bronziosteria.be/">
+
+<!-- Open Graph -->
+<meta property="og:type" content="restaurant">
+<meta property="og:title" content="Bronzi Osteria Italiana — Restaurant italien à Waterloo">
+<meta property="og:description" content="Pâtes fraîches, pizza au four et desserts maison dans une osteria italienne chaleureuse, au cœur de Waterloo. Note 4.7/5 sur 340 avis.">
+<meta property="og:locale" content="fr_BE">
+
+<!-- Polices : Playfair Display (titres) + Lato (texte courant) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Lato:wght@300;400;700;900&display=swap" rel="stylesheet">
+
+<!-- Données structurées locales (informations fournies uniquement) -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Restaurant",
+  "name": "Bronzi Osteria Italiana",
+  "servesCuisine": "Italienne",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "Chaussée de Bruxelles 192",
+    "addressLocality": "Waterloo",
+    "postalCode": "1410",
+    "addressCountry": "BE"
+  },
+  "telephone": "+32 2 687 43 84",
+  "priceRange": "€20–€40",
+  "acceptsReservations": "True",
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.7",
+    "reviewCount": "340"
+  },
+  "openingHoursSpecification": {
+    "@type": "OpeningHoursSpecification",
+    "dayOfWeek": ["Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    "opens": "18:00",
+    "closes": "22:00"
+  }
+}
+</script>
+
+<style>
+  /* ==========================================================
+     VARIABLES — palette imposée
+     ========================================================== */
+  :root{
+    --bg-dark:     #1A1815;   /* fond principal, noir doux */
+    --bg-darker:   #131110;   /* header / footer */
+    --bg-card:     #242019;   /* cartes, sections alternées */
+    --gold:        #C9A24B;   /* titres, accents, bordures */
+    --gold-soft:   #B8935A;   /* variante hover */
+    --gold-line:   rgba(201,162,75,0.28);
+    --text-light:  #E8DFD0;   /* texte courant */
+    --text-muted:  #B8AD98;   /* texte secondaire */
+
+    --font-title: 'Playfair Display', Georgia, serif;
+    --font-body:  'Lato', Arial, sans-serif;
+
+    --container: 1180px;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html{ scroll-behavior:smooth; }
+
+  body{
+    background:var(--bg-dark);
+    color:var(--text-light);
+    font-family:var(--font-body);
+    line-height:1.7;
+    overflow-x:hidden;
+  }
+
+  img{ max-width:100%; display:block; }
+  a{ color:inherit; text-decoration:none; }
+  ul{ list-style:none; }
+
+  h1,h2,h3,h4{
+    font-family:var(--font-title);
+    color:var(--gold);
+    font-weight:600;
+    line-height:1.25;
+  }
+
+  .container{ max-width:var(--container); margin:0 auto; padding:0 24px; }
+  section{ padding:100px 0; position:relative; }
+
+  .eyebrow{
+    display:inline-block;
+    font-family:var(--font-body);
+    text-transform:uppercase;
+    letter-spacing:0.22em;
+    font-size:0.75rem;
+    color:var(--gold-soft);
+    margin-bottom:18px;
+  }
+
+  .eyebrow::before{ content:"— "; }
+  .eyebrow::after{ content:" —"; }
+
+  .section-title{
+    font-size:clamp(1.9rem, 4vw, 2.8rem);
+    margin-bottom:20px;
+  }
+
+  .section-lead{
+    color:var(--text-muted);
+    max-width:640px;
+    font-size:1.05rem;
+  }
+
+  .center{ text-align:center; margin-left:auto; margin-right:auto; }
+
+  .gold-rule{
+    width:64px; height:1px;
+    background:var(--gold);
+    margin:22px auto;
+    opacity:0.7;
+  }
+  .gold-rule.left{ margin-left:0; }
+
+  /* Boutons */
+  .btn{
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    padding:15px 34px;
+    font-family:var(--font-body);
+    font-weight:700;
+    font-size:0.95rem;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    border-radius:2px;
+    border:1px solid transparent;
+    cursor:pointer;
+    transition:all .35s ease;
+  }
+  .btn-gold{
+    background:var(--gold);
+    color:var(--bg-darker);
+  }
+  .btn-gold:hover{
+    background:var(--gold-soft);
+    transform:translateY(-2px);
+    box-shadow:0 12px 28px -10px rgba(201,162,75,0.55);
+  }
+  .btn-outline{
+    background:transparent;
+    color:var(--gold);
+    border-color:var(--gold-line);
+  }
+  .btn-outline:hover{
+    border-color:var(--gold);
+    background:rgba(201,162,75,0.08);
+    transform:translateY(-2px);
+  }
+
+  /* ==========================================================
+     HEADER
+     ========================================================== */
+  header{
+    position:fixed; top:0; left:0; right:0; z-index:1000;
+    background:rgba(19,17,16,0.97);
+    border-bottom:1px solid var(--gold-line);
+    transition:background .3s ease;
+  }
+  .nav-wrap{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px 24px;
+    max-width:var(--container);
+    margin:0 auto;
+  }
+  .logo{
+    font-family:var(--font-title);
+    font-size:1.35rem;
+    font-weight:700;
+    color:var(--gold);
+    letter-spacing:0.02em;
+  }
+  .logo span{
+    display:block;
+    font-family:var(--font-body);
+    font-size:0.62rem;
+    letter-spacing:0.28em;
+    text-transform:uppercase;
+    color:var(--text-muted);
+    font-weight:400;
+  }
+  nav ul{
+    display:flex;
+    gap:36px;
+  }
+  nav a{
+    font-size:0.88rem;
+    letter-spacing:0.03em;
+    color:var(--text-light);
+    position:relative;
+    padding:4px 0;
+    transition:color .25s ease;
+  }
+  nav a::after{
+    content:"";
+    position:absolute; left:0; bottom:-2px;
+    width:0; height:1px;
+    background:var(--gold);
+    transition:width .3s ease;
+  }
+  nav a:hover{ color:var(--gold); }
+  nav a:hover::after{ width:100%; }
+
+  .header-actions{ display:flex; align-items:center; gap:20px; }
+  .btn-reserve{
+    padding:11px 24px;
+    font-size:0.82rem;
+  }
+
+  .nav-toggle{
+    display:none;
+    flex-direction:column;
+    gap:5px;
+    background:none;
+    border:none;
+    cursor:pointer;
+    padding:6px;
+  }
+  .nav-toggle span{
+    width:24px; height:1.5px;
+    background:var(--gold);
+    display:block;
+  }
+
+  /* ==========================================================
+     HERO
+     ========================================================== */
+  .hero{
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    position:relative;
+    padding-top:90px;
+    background:
+      radial-gradient(ellipse at 30% 20%, rgba(201,162,75,0.10), transparent 55%),
+      radial-gradient(ellipse at 80% 80%, rgba(184,147,90,0.08), transparent 55%),
+      linear-gradient(180deg, #17150F 0%, #1A1815 60%, #1A1815 100%);
+    overflow:hidden;
+  }
+  .hero::before{
+    content:"";
+    position:absolute; inset:0;
+    background-image:
+      repeating-linear-gradient(115deg, rgba(201,162,75,0.035) 0px, rgba(201,162,75,0.035) 1px, transparent 1px, transparent 90px);
+    pointer-events:none;
+  }
+  .hero-grid{
+    display:grid;
+    grid-template-columns:1.05fr 0.95fr;
+    gap:60px;
+    align-items:center;
+    width:100%;
+  }
+  .hero-eyebrow{
+    color:var(--gold-soft);
+    text-transform:uppercase;
+    letter-spacing:0.28em;
+    font-size:0.78rem;
+    margin-bottom:22px;
+  }
+  .hero h1{
+    font-size:clamp(2.6rem, 5.5vw, 4.4rem);
+    color:var(--text-light);
+    margin-bottom:22px;
+  }
+  .hero h1 em{
+    font-style:italic;
+    color:var(--gold);
+  }
+  .hero p{
+    color:var(--text-muted);
+    font-size:1.15rem;
+    max-width:480px;
+    margin-bottom:38px;
+  }
+  .hero-ctas{ display:flex; gap:18px; flex-wrap:wrap; }
+
+  .photo-placeholder{
+    position:relative;
+    border:1px dashed var(--gold-line);
+    background:
+      linear-gradient(155deg, rgba(201,162,75,0.09), rgba(201,162,75,0.02)),
+      var(--bg-card);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    color:var(--text-muted);
+    gap:10px;
+    padding:30px;
+    border-radius:2px;
+  }
+  .photo-placeholder .icon{
+    font-size:1.8rem;
+    color:var(--gold);
+    opacity:0.85;
+  }
+  .photo-placeholder .label{
+    font-family:var(--font-title);
+    color:var(--gold);
+    font-size:1rem;
+    font-style:italic;
+  }
+  .photo-placeholder .sub{
+    font-size:0.78rem;
+    letter-spacing:0.03em;
+    text-transform:uppercase;
+    color:var(--text-muted);
+    opacity:0.75;
+  }
+
+  .hero-visual{ height:520px; }
+  .hero-visual .photo-placeholder{ height:100%; }
+
+  .scroll-cue{
+    position:absolute;
+    bottom:32px; left:50%;
+    transform:translateX(-50%);
+    display:flex; flex-direction:column; align-items:center;
+    gap:8px;
+    color:var(--text-muted);
+    font-size:0.7rem;
+    letter-spacing:0.2em;
+    text-transform:uppercase;
+  }
+  .scroll-cue::after{
+    content:"";
+    width:1px; height:34px;
+    background:linear-gradient(var(--gold), transparent);
+    animation:scrollPulse 2s ease-in-out infinite;
+  }
+  @keyframes scrollPulse{
+    0%,100%{ opacity:0.3; }
+    50%{ opacity:1; }
+  }
+
+  /* ==========================================================
+     FADE-IN AU SCROLL
+     ========================================================== */
+  .fade-in{
+    opacity:0;
+    transform:translateY(26px);
+    transition:opacity .9s ease, transform .9s ease;
+  }
+  .fade-in.is-visible{
+    opacity:1;
+    transform:translateY(0);
+  }
+  .fade-in.d1{ transition-delay:.1s; }
+  .fade-in.d2{ transition-delay:.2s; }
+  .fade-in.d3{ transition-delay:.3s; }
+
+  /* ==========================================================
+     À PROPOS
+     ========================================================== */
+  .about{ background:var(--bg-dark); }
+  .about-grid{
+    display:grid;
+    grid-template-columns:0.9fr 1.1fr;
+    gap:70px;
+    align-items:center;
+  }
+  .about-visual .photo-placeholder{ height:420px; }
+  .about-text p{
+    color:var(--text-muted);
+    margin-bottom:18px;
+    font-size:1.05rem;
+  }
+  .about-points{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:22px;
+    margin-top:34px;
+  }
+  .about-point{
+    border-top:1px solid var(--gold-line);
+    padding-top:14px;
+  }
+  .about-point .num{
+    font-family:var(--font-title);
+    color:var(--gold);
+    font-size:1.3rem;
+    display:block;
+    margin-bottom:6px;
+  }
+  .about-point p{ font-size:0.92rem; color:var(--text-muted); margin:0; }
+
+  /* ==========================================================
+     MENU
+     ========================================================== */
+  .menu-section{ background:var(--bg-darker); }
+
+  .signature-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:36px;
+    margin:56px 0 90px;
+  }
+  .signature-card{
+    background:var(--bg-card);
+    border:1px solid var(--gold-line);
+    overflow:hidden;
+    transition:transform .4s ease, box-shadow .4s ease, border-color .4s ease;
+  }
+  .signature-card:hover{
+    transform:translateY(-6px);
+    border-color:var(--gold);
+    box-shadow:0 24px 48px -24px rgba(0,0,0,0.6);
+  }
+  .signature-card .photo-placeholder{ height:260px; border:none; border-bottom:1px solid var(--gold-line); }
+  .signature-body{ padding:28px 30px 32px; }
+  .signature-tag{
+    font-size:0.72rem;
+    letter-spacing:0.2em;
+    text-transform:uppercase;
+    color:var(--gold-soft);
+    margin-bottom:10px;
+    display:block;
+  }
+  .signature-card h3{ font-size:1.5rem; margin-bottom:10px; }
+  .signature-card p{ color:var(--text-muted); font-size:0.96rem; }
+
+  .menu-categories{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:1px;
+    background:var(--gold-line);
+    border:1px solid var(--gold-line);
+  }
+  .menu-cat{
+    background:var(--bg-darker);
+    padding:38px 26px;
+    text-align:center;
+    transition:background .35s ease;
+  }
+  .menu-cat:hover{ background:var(--bg-card); }
+  .menu-cat .icon{ font-size:1.6rem; color:var(--gold); margin-bottom:14px; }
+  .menu-cat h4{ font-size:1.1rem; margin-bottom:8px; }
+  .menu-cat p{ font-size:0.85rem; color:var(--text-muted); }
+
+  .menu-note{
+    text-align:center;
+    margin-top:50px;
+    padding-top:40px;
+    border-top:1px solid var(--gold-line);
+  }
+  .menu-note p{ color:var(--text-muted); margin-bottom:22px; }
+
+  /* ==========================================================
+     POURQUOI RÉSERVER
+     ========================================================== */
+  .why-grid{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:1px;
+    background:var(--gold-line);
+    border:1px solid var(--gold-line);
+    margin-top:56px;
+  }
+  .why-card{
+    background:var(--bg-dark);
+    padding:44px 30px;
+    text-align:center;
+  }
+  .why-card .icon{
+    font-size:1.7rem;
+    color:var(--gold);
+    margin-bottom:16px;
+  }
+  .why-card .big{
+    font-family:var(--font-title);
+    font-size:2.1rem;
+    color:var(--gold);
+    display:block;
+    margin-bottom:6px;
+  }
+  .why-card h4{ font-size:1rem; margin-bottom:8px; color:var(--text-light); font-family:var(--font-body); font-weight:700; letter-spacing:0.02em; }
+  .why-card p{ font-size:0.85rem; color:var(--text-muted); }
+
+  /* ==========================================================
+     GALERIE
+     ========================================================== */
+  .gallery-section{ background:var(--bg-darker); }
+  .gallery-grid{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    grid-auto-rows:230px;
+    gap:14px;
+    margin-top:56px;
+  }
+  .gallery-grid .photo-placeholder{ height:100%; }
+  .gallery-grid .g-tall{ grid-row:span 2; }
+  .gallery-grid .g-wide{ grid-column:span 2; }
+
+  /* ==========================================================
+     INFOS PRATIQUES
+     ========================================================== */
+  .infos-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:60px;
+    align-items:start;
+    margin-top:50px;
+  }
+  .infos-card{
+    background:var(--bg-card);
+    border:1px solid var(--gold-line);
+    padding:40px;
+  }
+  .infos-block{ margin-bottom:30px; }
+  .infos-block:last-child{ margin-bottom:0; }
+  .infos-block h4{
+    font-size:0.78rem;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:var(--gold-soft);
+    margin-bottom:12px;
+    font-family:var(--font-body);
+    font-weight:700;
+  }
+  .infos-block p, .infos-block a{ color:var(--text-light); font-size:1.02rem; }
+  .infos-block a.phone-link{
+    color:var(--gold);
+    font-weight:700;
+    font-size:1.3rem;
+    transition:color .25s ease;
+  }
+  .infos-block a.phone-link:hover{ color:var(--gold-soft); }
+
+  .hours-table{ width:100%; border-collapse:collapse; }
+  .hours-table tr{ border-bottom:1px solid rgba(201,162,75,0.14); }
+  .hours-table tr:last-child{ border-bottom:none; }
+  .hours-table td{ padding:9px 0; font-size:0.95rem; }
+  .hours-table td:last-child{ text-align:right; color:var(--text-muted); }
+  .hours-table tr.closed td:last-child{ color:var(--gold-soft); font-style:italic; }
+
+  .map-wrap{
+    border:1px solid var(--gold-line);
+    height:100%;
+    min-height:440px;
+    overflow:hidden;
+    filter:grayscale(0.35) contrast(1.05);
+  }
+  .map-wrap iframe{ width:100%; height:100%; min-height:440px; border:0; display:block; }
+
+  /* ==========================================================
+     CTA FINAL
+     ========================================================== */
+  .final-cta{
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(201,162,75,0.14), transparent 60%),
+      var(--bg-darker);
+    text-align:center;
+    border-top:1px solid var(--gold-line);
+    border-bottom:1px solid var(--gold-line);
+  }
+  .final-cta .eyebrow{ color:var(--gold-soft); }
+  .final-cta h2{ font-size:clamp(2rem, 4.5vw, 3.1rem); margin-bottom:18px; }
+  .final-cta p{ color:var(--text-muted); max-width:520px; margin:0 auto 36px; font-size:1.05rem; }
+  .cta-phone{
+    display:inline-block;
+    font-family:var(--font-title);
+    font-size:clamp(2.1rem, 5vw, 3.2rem);
+    color:var(--gold);
+    letter-spacing:0.03em;
+    margin-bottom:34px;
+    transition:color .3s ease, letter-spacing .3s ease;
+  }
+  .cta-phone:hover{ color:var(--gold-soft); letter-spacing:0.05em; }
+
+  /* ==========================================================
+     FOOTER
+     ========================================================== */
+  footer{
+    background:var(--bg-darker);
+    padding:70px 0 30px;
+  }
+  .footer-grid{
+    display:grid;
+    grid-template-columns:1.3fr 1fr 1fr;
+    gap:50px;
+    padding-bottom:44px;
+    border-bottom:1px solid var(--gold-line);
+  }
+  .footer-logo{
+    font-family:var(--font-title);
+    font-size:1.4rem;
+    color:var(--gold);
+    margin-bottom:14px;
+  }
+  .footer-grid p, .footer-grid a{ color:var(--text-muted); font-size:0.92rem; }
+  .footer-grid h5{
+    font-size:0.72rem;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:var(--gold-soft);
+    margin-bottom:16px;
+  }
+  .footer-grid ul li{ margin-bottom:10px; }
+  .footer-grid ul a:hover{ color:var(--gold); }
+  .footer-bottom{
+    padding-top:28px;
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+    font-size:0.8rem;
+    color:var(--text-muted);
+  }
+
+  /* ==========================================================
+     RESPONSIVE
+     ========================================================== */
+  @media (max-width:980px){
+    .hero-grid, .about-grid, .infos-grid{ grid-template-columns:1fr; }
+    .hero-visual{ height:340px; order:-1; }
+    .about-visual .photo-placeholder{ height:300px; }
+    .signature-grid{ grid-template-columns:1fr; }
+    .why-grid{ grid-template-columns:1fr 1fr; }
+    .menu-categories{ grid-template-columns:1fr 1fr; }
+    .gallery-grid{ grid-template-columns:1fr 1fr; }
+    .gallery-grid .g-wide{ grid-column:span 2; }
+    .footer-grid{ grid-template-columns:1fr; gap:30px; }
+  }
+
+  @media (max-width:720px){
+    nav{ position:fixed; top:73px; left:0; right:0; bottom:0; z-index:999; background:var(--bg-darker); padding:40px 30px; transform:translateX(100%); transition:transform .4s ease; overflow-y:auto; }
+    nav.open{ transform:translateX(0); }
+    nav ul{ flex-direction:column; gap:26px; }
+    nav ul a{ font-size:1.1rem; }
+    .nav-toggle{ display:flex; }
+    .btn-reserve span.long{ display:none; }
+    section{ padding:70px 0; }
+    .why-grid, .menu-categories{ grid-template-columns:1fr 1fr; }
+    .gallery-grid{ grid-template-columns:1fr; grid-auto-rows:220px; }
+    .gallery-grid .g-tall, .gallery-grid .g-wide{ grid-row:auto; grid-column:auto; }
+    .about-points{ grid-template-columns:1fr; }
+    .infos-card{ padding:28px; }
+    .hero-ctas{ flex-direction:column; align-items:stretch; }
+    .hero-ctas .btn{ justify-content:center; }
+  }
+
+  @media (max-width:480px){
+    .why-grid, .menu-categories{ grid-template-columns:1fr; }
+    .logo{ font-size:1.1rem; }
+  }
+
+  /* Accessibilité : focus visible */
+  a:focus-visible, button:focus-visible{
+    outline:2px solid var(--gold);
+    outline-offset:3px;
+  }
+
+  .skip-link{
+    position:absolute; left:-999px; top:auto;
+    background:var(--gold); color:var(--bg-darker);
+    padding:12px 20px; z-index:2000; font-weight:700;
+  }
+  .skip-link:focus{ left:16px; top:16px; }
+</style>
+</head>
+<body>
+
+<a href="#accueil" class="skip-link">Aller au contenu principal</a>
+
+<!-- ================= HEADER ================= -->
+<header>
+  <div class="nav-wrap">
+    <a href="#accueil" class="logo">Bronzi Osteria Italiana<span>Waterloo</span></a>
+
+    <nav id="siteNav">
+      <ul>
+        <li><a href="#accueil">Accueil</a></li>
+        <li><a href="#apropos">L'osteria</a></li>
+        <li><a href="#menu">Menu</a></li>
+        <li><a href="#galerie">Galerie</a></li>
+        <li><a href="#infos">Infos pratiques</a></li>
+      </ul>
+    </nav>
+
+    <div class="header-actions">
+      <a href="tel:+3226874384" class="btn btn-gold btn-reserve" aria-label="Réserver une table par téléphone au 02 687 43 84">
+        📞 <span class="long">Réserver&nbsp;·&nbsp;</span>02 687 43 84
+      </a>
+      <button class="nav-toggle" id="navToggle" aria-label="Ouvrir le menu de navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ================= HERO ================= -->
+<section class="hero" id="accueil">
+  <div class="container">
+    <div class="hero-grid">
+      <div class="fade-in is-visible">
+        <div class="hero-eyebrow">Osteria italienne · Waterloo</div>
+        <h1>L'Italie authentique,<br><em>au cœur de Waterloo</em></h1>
+        <p>Pâtes fraîches, pizzas cuites au four et desserts faits maison, servis dans un cadre chaleureux et raffiné. Bienvenue chez Bronzi.</p>
+        <div class="hero-ctas">
+          <a href="tel:+3226874384" class="btn btn-gold">Réserver une table</a>
+          <a href="#menu" class="btn btn-outline">Découvrir le menu</a>
+        </div>
+      </div>
+
+      <div class="hero-visual fade-in d2 is-visible">
+        <div class="photo-placeholder" role="img" aria-label="Emplacement réservé pour une photo du restaurant ou d'un plat signature">
+          <span class="icon">🍝</span>
+          <span class="label">Photo à venir</span>
+          <span class="sub">Façade ou plat signature — à remplacer</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-cue">Découvrir</div>
+</section>
+
+<!-- ================= À PROPOS ================= -->
+<section class="about" id="apropos">
+  <div class="container">
+    <div class="about-grid">
+      <div class="about-visual fade-in">
+        <div class="photo-placeholder" role="img" aria-label="Emplacement réservé pour une photo de la salle du restaurant">
+          <span class="icon">🕯️</span>
+          <span class="label">Photo à venir</span>
+          <span class="sub">Ambiance de la salle — à remplacer</span>
+        </div>
+      </div>
+
+      <div class="about-text fade-in d1">
+        <div class="eyebrow">Notre esprit</div>
+        <h2 class="section-title">Une véritable osteria,<br>en toute simplicité</h2>
+        <p>Chez Bronzi, l'Italie se vit à table : des pâtes soignées, des pizzas cuites au four et des desserts maison, préparés avec attention et servis avec chaleur. Nos hôtes reviennent pour la qualité de la cuisine autant que pour l'accueil, attentif et sans chichi.</p>
+        <p>Un cadre élégant mais convivial, pensé pour un dîner en famille, entre amis ou en tête-à-tête — l'esprit d'une osteria italienne, à Waterloo.</p>
+
+        <div class="about-points">
+          <div class="about-point">
+            <span class="num">01</span>
+            <p>Cuisine italienne authentique : pâtes, pizzas au four et desserts maison</p>
+          </div>
+          <div class="about-point">
+            <span class="num">02</span>
+            <p>Service chaleureux et attentionné, salué par nos clients</p>
+          </div>
+          <div class="about-point">
+            <span class="num">03</span>
+            <p>Un cadre agréable, propice aux belles soirées</p>
+          </div>
+          <div class="about-point">
+            <span class="num">04</span>
+            <p>Sur place, à emporter ou en livraison sans contact</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= MENU ================= -->
+<section class="menu-section" id="menu">
+  <div class="container">
+    <div class="center fade-in">
+      <div class="eyebrow">Nos incontournables</div>
+      <h2 class="section-title">Les plats signature</h2>
+      <p class="section-lead center">Deux valeurs sûres de la maison, plébiscitées par nos habitués.</p>
+    </div>
+
+    <div class="signature-grid">
+      <article class="signature-card fade-in">
+        <div class="photo-placeholder" role="img" aria-label="Emplacement réservé pour une photo de pâtes fraîches">
+          <span class="icon">🍝</span>
+          <span class="label">Photo à venir</span>
+          <span class="sub">Pâtes fraîches — à remplacer</span>
+        </div>
+        <div class="signature-body">
+          <span class="signature-tag">Plat signature</span>
+          <h3>Nos pâtes</h3>
+          <p>La spécialité de la maison : des pâtes préparées avec soin, l'un des plats les plus appréciés par nos clients pour leur qualité et leur générosité.</p>
+        </div>
+      </article>
+
+      <article class="signature-card fade-in d1">
+        <div class="photo-placeholder" role="img" aria-label="Emplacement réservé pour une photo de la Pizza Bronzi Al Tartufo">
+          <span class="icon">🍕</span>
+          <span class="label">Photo à venir</span>
+          <span class="sub">Pizza Bronzi Al Tartufo — à remplacer</span>
+        </div>
+        <div class="signature-body">
+          <span class="signature-tag">Plat signature</span>
+          <h3>Pizza Bronzi Al Tartufo</h3>
+          <p>Notre pizza cuite au four, signature de la maison Bronzi, aux saveurs de truffe. Un incontournable de la carte, à découvrir sur place.</p>
+        </div>
+      </article>
+    </div>
+
+    <div class="fade-in">
+      <div class="eyebrow" style="display:block; text-align:center;">La carte</div>
+      <h2 class="section-title center">Notre menu</h2>
+    </div>
+
+    <div class="menu-categories fade-in">
+      <div class="menu-cat">
+        <div class="icon">🌿</div>
+        <h4>Entrées</h4>
+        <p>Antipasti &amp; spécialités italiennes</p>
+      </div>
+      <div class="menu-cat">
+        <div class="icon">🍝</div>
+        <h4>Pâtes</h4>
+        <p>Fraîches, préparées avec soin</p>
+      </div>
+      <div class="menu-cat">
+        <div class="icon">🍕</div>
+        <h4>Pizzas</h4>
+        <p>Cuites au four, dont la Bronzi Al Tartufo</p>
+      </div>
+      <div class="menu-cat">
+        <div class="icon">🍮</div>
+        <h4>Desserts</h4>
+        <p>Faits maison, en fin de repas</p>
+      </div>
+    </div>
+
+    <div class="menu-note fade-in">
+      <p>Menu complet disponible sur demande et au restaurant.</p>
+      <a href="tel:+3226874384" class="btn btn-outline">Nous appeler pour le menu complet</a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= POURQUOI RÉSERVER ================= -->
+<section id="pourquoi">
+  <div class="container">
+    <div class="center fade-in">
+      <div class="eyebrow">Pourquoi choisir Bronzi</div>
+      <h2 class="section-title">Une valeur sûre à Waterloo</h2>
+    </div>
+
+    <div class="why-grid">
+      <div class="why-card fade-in">
+        <div class="icon">⭐</div>
+        <span class="big">4.7/5</span>
+        <h4>340 avis Google</h4>
+        <p>Cuisine, service et cadre salués par nos clients</p>
+      </div>
+      <div class="why-card fade-in d1">
+        <div class="icon">💶</div>
+        <span class="big">20–40€</span>
+        <h4>Par personne</h4>
+        <p>Une cuisine italienne de qualité, à prix juste</p>
+      </div>
+      <div class="why-card fade-in d2">
+        <div class="icon">🍽️</div>
+        <h4>Sur place</h4>
+        <p>Dans notre salle, pour un vrai moment d'osteria</p>
+      </div>
+      <div class="why-card fade-in d3">
+        <div class="icon">🛵</div>
+        <h4>Emporter &amp; livraison</h4>
+        <p>À emporter ou en livraison sans contact</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= GALERIE ================= -->
+<section class="gallery-section" id="galerie">
+  <div class="container">
+    <div class="center fade-in">
+      <div class="eyebrow">Ambiance</div>
+      <h2 class="section-title">Galerie photo</h2>
+      <p class="section-lead center">Un aperçu de la maison — emplacements à compléter avec de vraies photos.</p>
+    </div>
+
+    <div class="gallery-grid">
+      <div class="photo-placeholder g-tall fade-in" role="img" aria-label="Emplacement réservé pour une photo de la salle du restaurant">
+        <span class="icon">🏛️</span><span class="label">Photo à venir</span><span class="sub">Salle du restaurant</span>
+      </div>
+      <div class="photo-placeholder fade-in d1" role="img" aria-label="Emplacement réservé pour une photo de pâtes">
+        <span class="icon">🍝</span><span class="label">Photo à venir</span><span class="sub">Pâtes maison</span>
+      </div>
+      <div class="photo-placeholder fade-in d2" role="img" aria-label="Emplacement réservé pour une photo de pizza">
+        <span class="icon">🍕</span><span class="label">Photo à venir</span><span class="sub">Pizza au four</span>
+      </div>
+      <div class="photo-placeholder g-wide fade-in d1" role="img" aria-label="Emplacement réservé pour une photo de la façade extérieure">
+        <span class="icon">🚪</span><span class="label">Photo à venir</span><span class="sub">Façade extérieure</span>
+      </div>
+      <div class="photo-placeholder fade-in d3" role="img" aria-label="Emplacement réservé pour une photo de dessert">
+        <span class="icon">🍮</span><span class="label">Photo à venir</span><span class="sub">Dessert maison</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= INFOS PRATIQUES ================= -->
+<section id="infos">
+  <div class="container">
+    <div class="center fade-in">
+      <div class="eyebrow">Nous trouver</div>
+      <h2 class="section-title">Infos pratiques</h2>
+    </div>
+
+    <div class="infos-grid">
+      <div class="infos-card fade-in">
+        <div class="infos-block">
+          <h4>Adresse</h4>
+          <p>Chaussée de Bruxelles 192<br>1410 Waterloo</p>
+        </div>
+        <div class="infos-block">
+          <h4>Téléphone</h4>
+          <a href="tel:+3226874384" class="phone-link">02 687 43 84</a>
+        </div>
+        <div class="infos-block">
+          <h4>Horaires</h4>
+          <table class="hours-table">
+            <tr><td>Mardi</td><td>18h – 22h</td></tr>
+            <tr><td>Mercredi</td><td>18h – 22h</td></tr>
+            <tr><td>Jeudi</td><td>18h – 22h</td></tr>
+            <tr><td>Vendredi</td><td>18h – 22h</td></tr>
+            <tr><td>Samedi</td><td>18h – 22h</td></tr>
+            <tr><td>Dimanche</td><td>18h – 22h</td></tr>
+            <tr class="closed"><td>Lundi</td><td>Fermé</td></tr>
+          </table>
+        </div>
+        <div class="infos-block">
+          <h4>Services</h4>
+          <p>Sur place · À emporter · Livraison sans contact</p>
+        </div>
+      </div>
+
+      <div class="map-wrap fade-in d1">
+        <iframe
+          src="https://www.google.com/maps?q=Chau.+de+Bruxelles+192,+1410+Waterloo,+Belgique&output=embed"
+          title="Localisation de Bronzi Osteria Italiana, Chaussée de Bruxelles 192, 1410 Waterloo"
+          loading="lazy"
+          referrerpolicy="no-referrer-when-downgrade">
+        </iframe>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= CTA FINAL ================= -->
+<section class="final-cta">
+  <div class="container fade-in">
+    <div class="eyebrow">Réservation</div>
+    <h2>Réservez votre table</h2>
+    <p>Pour un dîner italien de qualité à Waterloo, appelez-nous dès maintenant.</p>
+    <a href="tel:+3226874384" class="cta-phone">02 687 43 84</a>
+    <div>
+      <a href="tel:+3226874384" class="btn btn-gold">Appeler pour réserver</a>
+    </div>
+  </div>
+</section>
+
+<!-- ================= FOOTER ================= -->
+<footer id="contact">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <div class="footer-logo">Bronzi Osteria Italiana</div>
+        <p>Cuisine italienne — pâtes, pizzas au four et desserts maison — au cœur de Waterloo.</p>
+      </div>
+      <div>
+        <h5>Coordonnées</h5>
+        <ul>
+          <li>Chaussée de Bruxelles 192, 1410 Waterloo</li>
+          <li><a href="tel:+3226874384">02 687 43 84</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Horaires</h5>
+        <ul>
+          <li>Mardi – Dimanche : 18h – 22h</li>
+          <li>Lundi : fermé</li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© <span id="year"></span> Bronzi Osteria Italiana. Tous droits réservés.</span>
+      <span>Waterloo, Belgique</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Menu mobile
+  const navToggle = document.getElementById('navToggle');
+  const siteNav = document.getElementById('siteNav');
+  navToggle.addEventListener('click', () => {
+    const isOpen = siteNav.classList.toggle('open');
+    navToggle.setAttribute('aria-expanded', isOpen);
+  });
+  siteNav.querySelectorAll('a').forEach(link => {
+    link.addEventListener('click', () => {
+      siteNav.classList.remove('open');
+      navToggle.setAttribute('aria-expanded', 'false');
+    });
+  });
+
+  // Fade-in au scroll
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+  document.getElementById('year').textContent = new Date().getFullYear();
+</script>
+
+</body>
+</html>
