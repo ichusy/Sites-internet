@@ -439,8 +439,90 @@
     margin-bottom:10px;
     display:block;
   }
-  .signature-card h3{ font-size:1.5rem; margin-bottom:10px; }
+  .signature-card h3{ font-size:1.5rem; margin-bottom:10px; display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  .signature-card h3 .price-tag{ font-family:var(--font-body); font-size:0.95rem; font-weight:700; color:var(--gold-soft); }
   .signature-card p{ color:var(--text-muted); font-size:0.96rem; }
+
+  /* Onglets du menu complet */
+  .menu-tabs{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:10px;
+    margin:50px 0 8px;
+  }
+  .menu-tab-btn{
+    background:transparent;
+    border:1px solid var(--gold-line);
+    color:var(--text-muted);
+    font-family:var(--font-body);
+    font-size:0.82rem;
+    letter-spacing:0.06em;
+    text-transform:uppercase;
+    padding:10px 20px;
+    cursor:pointer;
+    transition:all .3s ease;
+  }
+  .menu-tab-btn:hover{ border-color:var(--gold); color:var(--gold); }
+  .menu-tab-btn.is-active{
+    background:var(--gold);
+    border-color:var(--gold);
+    color:var(--bg-darker);
+    font-weight:700;
+  }
+
+  .menu-panels{
+    max-width:820px;
+    margin:0 auto;
+    background:var(--bg-card);
+    border:1px solid var(--gold-line);
+    padding:44px 44px 30px;
+  }
+  .menu-panel{ display:none; }
+  .menu-panel.is-active{ display:block; animation:panelFade .5s ease; }
+  @keyframes panelFade{ from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:translateY(0);} }
+
+  .menu-subhead{
+    font-family:var(--font-title);
+    font-style:italic;
+    color:var(--gold);
+    font-size:1.15rem;
+    margin:30px 0 14px;
+    padding-top:20px;
+    border-top:1px solid var(--gold-line);
+  }
+  .menu-list li.menu-row:first-child, .menu-subhead + .menu-list li.menu-row:first-child{ padding-top:0; }
+  .menu-subhead:first-child{ margin-top:0; padding-top:0; border-top:none; }
+
+  .menu-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    gap:24px;
+    padding:13px 0;
+    border-bottom:1px solid rgba(201,162,75,0.12);
+  }
+  .menu-row:last-child{ border-bottom:none; }
+  .menu-row-hero{ background:rgba(201,162,75,0.06); margin:0 -20px; padding:13px 20px; border-bottom:none; }
+  .menu-row-name{
+    color:var(--text-light);
+    font-size:1rem;
+    font-weight:400;
+  }
+  .menu-row-name em{
+    display:block;
+    font-style:italic;
+    color:var(--text-muted);
+    font-size:0.85rem;
+    margin-top:3px;
+  }
+  .menu-row-price{
+    color:var(--gold-soft);
+    font-weight:700;
+    font-size:0.98rem;
+    white-space:nowrap;
+    flex-shrink:0;
+  }
 
   .menu-categories{
     display:grid;
@@ -658,6 +740,10 @@
     .gallery-grid .g-tall, .gallery-grid .g-wide{ grid-row:auto; grid-column:auto; }
     .about-points{ grid-template-columns:1fr; }
     .infos-card{ padding:28px; }
+    .menu-panels{ padding:30px 22px 20px; }
+    .menu-tabs{ gap:8px; }
+    .menu-tab-btn{ padding:9px 14px; font-size:0.74rem; }
+    .menu-row-hero{ margin:0 -14px; padding:13px 14px; }
     .hero-ctas{ flex-direction:column; align-items:stretch; }
     .hero-ctas .btn{ justify-content:center; }
   }
@@ -797,20 +883,20 @@
         <div class="signature-body">
           <span class="signature-tag">Plat signature</span>
           <h3>Nos pâtes</h3>
-          <p>La spécialité de la maison : des pâtes préparées avec soin, l'un des plats les plus appréciés par nos clients pour leur qualité et leur générosité.</p>
+          <p>Des primi préparés avec soin — de la Carbonara à l'Orecchiette alla Bronzi — parmi les plats les plus appréciés par nos clients pour leur qualité et leur générosité.</p>
         </div>
       </article>
 
       <article class="signature-card fade-in d1">
-        <div class="photo-placeholder" role="img" aria-label="Emplacement réservé pour une photo de la Pizza Bronzi Al Tartufo">
+        <div class="photo-placeholder" role="img" aria-label="Emplacement réservé pour une photo de la Pizza Bronzi">
           <span class="icon">🍕</span>
           <span class="label">Photo à venir</span>
-          <span class="sub">Pizza Bronzi Al Tartufo — à remplacer</span>
+          <span class="sub">Pizza Bronzi — à remplacer</span>
         </div>
         <div class="signature-body">
           <span class="signature-tag">Plat signature</span>
-          <h3>Pizza Bronzi Al Tartufo</h3>
-          <p>Notre pizza cuite au four, signature de la maison Bronzi, aux saveurs de truffe. Un incontournable de la carte, à découvrir sur place.</p>
+          <h3>Pizza Bronzi <span class="price-tag">23.00€</span></h3>
+          <p>Fior di latte, crème à la truffe, scamorza fumée, truffe, guanciale, basilic. La pizza qui porte notre nom — un incontournable de la carte.</p>
         </div>
       </article>
     </div>
@@ -818,34 +904,159 @@
     <div class="fade-in">
       <div class="eyebrow" style="display:block; text-align:center;">La carte</div>
       <h2 class="section-title center">Notre menu</h2>
+      <p class="section-lead center">L'intégralité de notre carte, telle que servie en salle.</p>
     </div>
 
-    <div class="menu-categories fade-in">
-      <div class="menu-cat">
-        <div class="icon">🌿</div>
-        <h4>Entrées</h4>
-        <p>Antipasti &amp; spécialités italiennes</p>
+    <div class="menu-tabs fade-in" role="tablist" aria-label="Catégories du menu">
+      <button class="menu-tab-btn is-active" data-tab="antipasti" role="tab" aria-selected="true">Antipasti</button>
+      <button class="menu-tab-btn" data-tab="primi" role="tab" aria-selected="false">Primi</button>
+      <button class="menu-tab-btn" data-tab="pizze" role="tab" aria-selected="false">Pizze</button>
+      <button class="menu-tab-btn" data-tab="secondi" role="tab" aria-selected="false">Secondi</button>
+      <button class="menu-tab-btn" data-tab="dolci" role="tab" aria-selected="false">Dolci</button>
+      <button class="menu-tab-btn" data-tab="boissons" role="tab" aria-selected="false">Boissons</button>
+    </div>
+
+    <div class="menu-panels fade-in">
+
+      <div class="menu-panel is-active" id="tab-antipasti" role="tabpanel">
+        <ul class="menu-list">
+          <li class="menu-row"><span class="menu-row-name">Carpaccio di polpo</span><span class="menu-row-price">20.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Tartare di tonno rosso e pistacchio<em>Tartare de thon rouge et pistaches</em></span><span class="menu-row-price">18.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Scampi fritti</span><span class="menu-row-price">18.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Vitello tonnato</span><span class="menu-row-price">18.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Carpaccio di manzo</span><span class="menu-row-price">17.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Tartare di manzo</span><span class="menu-row-price">22.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Parmigiana di melanzane</span><span class="menu-row-price">17.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Burrata al tartufo</span><span class="menu-row-price">17.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Fonduta al tartufo<em>Croquettes maison à la truffe</em></span><span class="menu-row-price">19.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Tagliere misto<em>Planche mixte de charcuteries et fromages italiens</em></span><span class="menu-row-price">33.00€</span></li>
+        </ul>
       </div>
-      <div class="menu-cat">
-        <div class="icon">🍝</div>
-        <h4>Pâtes</h4>
-        <p>Fraîches, préparées avec soin</p>
+
+      <div class="menu-panel" id="tab-primi" role="tabpanel">
+        <ul class="menu-list">
+          <li class="menu-row"><span class="menu-row-name">Tonnarelli cacio e pepe<em>Pâtes fraîches, pecorino romano, poivre noir</em></span><span class="menu-row-price">18.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Spaghetti alla carbonara<em>Œufs, pecorino romano, guanciale, poivre noir</em></span><span class="menu-row-price">20.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Mezzemaniche all'amatriciana<em>Tomate, guanciale, pecorino romano, poivre noir</em></span><span class="menu-row-price">20.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Gnocchi alla sorrentina<em>Tomate, mozzarella, parmesan, basilic</em></span><span class="menu-row-price">18.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Orecchiette rustici<em>Crème de parmesan, cime di rapa, saucisse</em></span><span class="menu-row-price">18.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Mezzemaniche cremose al guanciale<em>Crème de courgettes, guanciale, stracciatella</em></span><span class="menu-row-price">21.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Orecchiette alla Bronzi 🌶<em>Tomate, stracciatella, 'Nduja, saucisse calabraise</em></span><span class="menu-row-price">22.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Linguine allo scoglio<em>Fruits de mer, palourdes, langoustines, tomates cerises, ail</em></span><span class="menu-row-price">22.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Paccheri mezze mare<em>Thon, tomates cerises, pistaches</em></span><span class="menu-row-price">23.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Risotto perla di mare<em>Scampis, ricotta au citron, truffe</em></span><span class="menu-row-price">23.50€</span></li>
+        </ul>
       </div>
-      <div class="menu-cat">
-        <div class="icon">🍕</div>
-        <h4>Pizzas</h4>
-        <p>Cuites au four, dont la Bronzi Al Tartufo</p>
+
+      <div class="menu-panel" id="tab-pizze" role="tabpanel">
+        <ul class="menu-list">
+          <li class="menu-row"><span class="menu-row-name">Pizza Marinara<em>Tomate, ail, basilic, origan</em></span><span class="menu-row-price">11.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza Margherita<em>Tomate, fior di latte, basilic</em></span><span class="menu-row-price">12.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza Cardinale<em>Tomate, fior di latte, jambon, basilic</em></span><span class="menu-row-price">14.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza Diavola<em>Tomate, fior di latte, salami piquant, basilic</em></span><span class="menu-row-price">14.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza Capricciosa<em>Tomate, fior di latte, jambon, champignons, basilic</em></span><span class="menu-row-price">16.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza Calzone<em>Tomate, fior di latte, jambon, basilic</em></span><span class="menu-row-price">17.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza 4 Stagioni<em>Tomate, fior di latte, jambon, champignons, artichauts, basilic</em></span><span class="menu-row-price">17.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza Romana<em>Tomate, fior di latte, champignons, câpres, olives, anchois, origan, basilic</em></span><span class="menu-row-price">17.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza 4 Formaggi<em>Tomate, fior di latte, gorgonzola, scamorza fumée, parmesan, basilic</em></span><span class="menu-row-price">17.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza Parmigiana<em>Tomate, fior di latte, aubergines grillées, basilic</em></span><span class="menu-row-price">17.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza Bufalina<em>Tomate, mozzarella di Bufala, basilic — sans lactose</em></span><span class="menu-row-price">17.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza Calabrese<em>Tomate, fior di latte, salami piquant, câpres, anchois, origan, basilic</em></span><span class="menu-row-price">17.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza Vegetariana<em>Tomate, fior di latte, poivrons, aubergines grillées, olives, basilic</em></span><span class="menu-row-price">18.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza Tonnata<em>Fior di latte, tomates cerises, thon, oignons rouges, basilic</em></span><span class="menu-row-price">18.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza Salsiccia &amp; friarielli<em>Fior di latte, scamorza fumée, saucisse, friarielli, basilic</em></span><span class="menu-row-price">18.50€</span></li>
+        </ul>
+        <div class="menu-subhead">Le speciale</div>
+        <ul class="menu-list">
+          <li class="menu-row"><span class="menu-row-name">Pizza Primavera<em>Fior di latte, tomates cerises, jambon de Parme, roquette, copeaux de parmesan · suggestion : extra burrata +5.00€</em></span><span class="menu-row-price">19.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza Armonia Italiana<em>Fior di latte, pesto de basilic, bresaola, ricotta, tomates séchées, ricotta salée fraîchement râpée, basilic</em></span><span class="menu-row-price">19.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza Fior di Bosco<em>Fior di latte, crème de noix, gorgonzola, speck, champignons, noix, basilic</em></span><span class="menu-row-price">19.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza Pistacchiosa<em>Fior di latte, crème de pistaches, mortadelle, stracciatella, pistaches, basilic</em></span><span class="menu-row-price">20.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza MaDanì<em>Fior di latte, crème de courgettes, dés de courgette, scampis, ail, basilic</em></span><span class="menu-row-price">22.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pizza Brucia Bocca 🌶<em>Fior di latte, ricotta, 'Nduja, saucisse calabraise, oignons rouges, basilic</em></span><span class="menu-row-price">22.50€</span></li>
+          <li class="menu-row menu-row-hero"><span class="menu-row-name">Pizza Bronzi<em>Fior di latte, crème à la truffe, scamorza fumée, truffe, guanciale, basilic</em></span><span class="menu-row-price">23.00€</span></li>
+        </ul>
       </div>
-      <div class="menu-cat">
-        <div class="icon">🍮</div>
-        <h4>Desserts</h4>
-        <p>Faits maison, en fin de repas</p>
+
+      <div class="menu-panel" id="tab-secondi" role="tabpanel">
+        <ul class="menu-list">
+          <li class="menu-row"><span class="menu-row-name">Salmone al forno<em>Pavé de saumon, courgettes, sauce burrata et concassé de pistaches</em></span><span class="menu-row-price">28.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Tonno alla salsa mediterranea e peperoni<em>Pavé de thon à la sauce méditerranéenne, poivrons et katsuobushi</em></span><span class="menu-row-price">30.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Polpo grigliato<em>Poulpe grillé, scarole à la napolitaine, crème de haricots blancs</em></span><span class="menu-row-price">32.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Scaloppine alla parmigiana<em>Escalope de veau, tomate, aubergines, parmesan, basilic — accompagnement : pâtes sauce tomate</em></span><span class="menu-row-price">23.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Tagliata di manzo<em>Entrecôte irlandaise, roquette, tomates cerises, copeaux de parmesan — accompagnement : pommes de terre</em></span><span class="menu-row-price">30.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Ossobuco alla milanese<em>Jarret de veau aux petits légumes — accompagnement : pâtes sauce tomate</em></span><span class="menu-row-price">26.50€</span></li>
+        </ul>
       </div>
+
+      <div class="menu-panel" id="tab-dolci" role="tabpanel">
+        <ul class="menu-list">
+          <li class="menu-row"><span class="menu-row-name">Sorbetti</span><span class="menu-row-price">8.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Panna Cotta</span><span class="menu-row-price">9.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Tiramisù</span><span class="menu-row-price">10.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Zabaglione<em>Jusqu'à 22h</em></span><span class="menu-row-price">12.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Tortino al cioccolato</span><span class="menu-row-price">10.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Dama Bianca</span><span class="menu-row-price">9.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Panuzzi alla Nutella<em>Jusqu'à 22h</em></span><span class="menu-row-price">8.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Cannoli alla Siciliana<em>3 pièces</em></span><span class="menu-row-price">9.00€</span></li>
+        </ul>
+      </div>
+
+      <div class="menu-panel" id="tab-boissons" role="tabpanel">
+        <div class="menu-subhead">Aperitivi</div>
+        <ul class="menu-list">
+          <li class="menu-row"><span class="menu-row-name">Capo Nino<em>Amaro del Capo, jus de citron, tonic, sucre de canne</em></span><span class="menu-row-price">11.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Amalfi Spritz<em>Limoncello, prosecco, eau pétillante</em></span><span class="menu-row-price">9.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Bronzilo<em>Campari, Schweppes pomelo, sucre de canne, citron vert, basilic</em></span><span class="menu-row-price">10.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Aperol / Campari Spritz</span><span class="menu-row-price">12.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Saint Germain Spritz</span><span class="menu-row-price">8.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Prosecco</span><span class="menu-row-price">9.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Kir Royal</span><span class="menu-row-price">11.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Amaretto / Limoncello Sour</span><span class="menu-row-price">11.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Espresso Martini</span><span class="menu-row-price">10.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Negroni</span><span class="menu-row-price">10.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Negroni Sbagliato<em>Campari, vermouth, prosecco</em></span><span class="menu-row-price">9.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Campari Orange</span><span class="menu-row-price">8.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Pisang Orange</span><span class="menu-row-price">7.00€</span></li>
+        </ul>
+        <div class="menu-subhead">Aperitivi 0,0%</div>
+        <ul class="menu-list">
+          <li class="menu-row"><span class="menu-row-name">Bronzilo<em>Pollen orange, Schweppes pomelo, sucre de canne, citron vert, basilic</em></span><span class="menu-row-price">9.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Amaretta Sour<em>Pollen amaretta, sucre de canne, jus de citron, blanc d'œuf, concassé d'amandes</em></span><span class="menu-row-price">9.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Limoncelli Sour<em>Pollen limoncelli, sucre de canne, jus de citron, blanc d'œuf</em></span><span class="menu-row-price">9.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Campari / Limoncelli Spritz</span><span class="menu-row-price">9.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Negroni</span><span class="menu-row-price">9.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Crodino</span><span class="menu-row-price">6.00€</span></li>
+        </ul>
+        <div class="menu-subhead">Bières &amp; boissons</div>
+        <ul class="menu-list">
+          <li class="menu-row"><span class="menu-row-name">Nastro Azzurro <em>/ sans alcool</em></span><span class="menu-row-price">4.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Duvel</span><span class="menu-row-price">4.80€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Waterloo</span><span class="menu-row-price">4.80€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Messina</span><span class="menu-row-price">5.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Acqua Panna / San Pellegrino</span><span class="menu-row-price">4.80€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Jus d'orange / Jus de pomme</span><span class="menu-row-price">3.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Coca-Cola / Coca-Cola zéro</span><span class="menu-row-price">3.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">San Pellegrino Limonata / Aranciata / Tonica</span><span class="menu-row-price">3.80€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Ice Tea / Estathé</span><span class="menu-row-price">3.50–4.00€</span></li>
+        </ul>
+        <div class="menu-subhead">Café, thé &amp; digestifs</div>
+        <ul class="menu-list">
+          <li class="menu-row"><span class="menu-row-name">Ristretto / Espresso</span><span class="menu-row-price">3.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Cappuccino / Latte Macchiato</span><span class="menu-row-price">4.80€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Thé</span><span class="menu-row-price">4.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Affogato</span><span class="menu-row-price">5.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Amaro / Digestif au choix</span><span class="menu-row-price">6.00€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Irish / Italian Coffee</span><span class="menu-row-price">9.50€</span></li>
+          <li class="menu-row"><span class="menu-row-name">Tre dolcezze<em>Espresso, panna cotta, tiramisù, cannolo</em></span><span class="menu-row-price">10.00€</span></li>
+        </ul>
+      </div>
+
     </div>
 
     <div class="menu-note fade-in">
-      <p>Menu complet disponible sur demande et au restaurant.</p>
-      <a href="tel:+3226874384" class="btn btn-outline">Nous appeler pour le menu complet</a>
+      <p>Carte non contractuelle, prix susceptibles d'évoluer. Allergènes : informations disponibles sur demande au restaurant.</p>
+      <a href="tel:+3226874384" class="btn btn-outline">Une question sur la carte ? Appelez-nous</a>
     </div>
   </div>
 </section>
@@ -1017,6 +1228,18 @@
     link.addEventListener('click', () => {
       siteNav.classList.remove('open');
       navToggle.setAttribute('aria-expanded', 'false');
+    });
+  });
+
+  // Onglets du menu
+  const tabBtns = document.querySelectorAll('.menu-tab-btn');
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabBtns.forEach(b => { b.classList.remove('is-active'); b.setAttribute('aria-selected', 'false'); });
+      document.querySelectorAll('.menu-panel').forEach(p => p.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      btn.setAttribute('aria-selected', 'true');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('is-active');
     });
   });
 
