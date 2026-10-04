@@ -1,6 +1,7 @@
 import type { BoxElement } from '../../core/model/types';
-import { applyMat, invertMat } from '../geometry/geom';
-import { isBox, type PageScene, type RenderItem } from '../scene';
+import { POINT_STRIDE } from '../../core/model/pointCodec';
+import { applyMat, distPointSeg, invertMat } from '../geometry/geom';
+import { isBox, strokeHalfWidth, type PageScene, type RenderItem } from '../scene';
 
 /** Le point (repère de la page) est-il dans le rectangle (transformé) de l'élément, à `tol` près ? */
 export function insideBox(item: RenderItem, x: number, y: number, tol = 0): boolean {
@@ -24,3 +25,26 @@ export function centerOfItem(item: RenderItem): [number, number] {
   return [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
 }
 
+
+/**
+ * Élément le plus haut touché en (x, y) (repère de la page) : intérieur d'une boîte, ou
+ * distance au tracé d'un trait ou d'un connecteur inférieure à `tol` + demi-épaisseur.
+ */
+export function pickAt(scene: PageScene, x: number, y: number, tol: number): string[] {
+  const hits = scene.query([x - tol, y - tol, x + tol, y + tol]).sort((a, b) => b.z - a.z);
+  for (const item of hits) {
+    if (isBox(item.el)) {
+      if (insideBox(item, x, y, tol)) return [item.id];
+      continue;
+    }
+    const pts = item.pts;
+    const thr = tol + strokeHalfWidth(item.el);
+    const n = pts.length / POINT_STRIDE;
+    for (let k = 0; k < Math.max(1, n - 1); k++) {
+      const j = k * POINT_STRIDE;
+      const e = Math.min(k + 1, n - 1) * POINT_STRIDE;
+      if (distPointSeg(x, y, pts[j], pts[j + 1], pts[e], pts[e + 1]) <= thr) return [item.id];
+    }
+  }
+  return [];
+}

@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { addElements, initNotebook, listPages, pageElements } from '../src/core/model/notebookDoc';
+import { addElements, initNotebook, listPages, listRecordings, pageElements, putRecording } from '../src/core/model/notebookDoc';
 import { defaultTemplate } from '../src/core/model/paper';
 import { encodePoints } from '../src/core/model/pointCodec';
 import { base64ToBytes, bytesToBase64, docToJson, jsonToDoc } from '../src/core/model/serialize';
-import type { StrokeElement } from '../src/core/model/types';
+import type { RecordingData, StrokeElement } from '../src/core/model/types';
+import { buildIndex } from '../src/core/search/notebookIndex';
 
 describe('sérialisation JSON', () => {
   it('base64 aller-retour', () => {
@@ -33,5 +34,19 @@ describe('sérialisation JSON', () => {
     expect(Array.from(back.points)).toEqual(Array.from(el.points));
     expect(back.transform).toEqual(el.transform);
     expect(back.color).toBe('#2f5fd0');
+  });
+
+  it('conserve les enregistrements audio et leur transcription', () => {
+    const doc = new Y.Doc();
+    initNotebook(doc, 'Bio', { width: 595, height: 842, template: defaultTemplate('lined') });
+    const rec: RecordingData = {
+      id: 'r1', assetId: 'abc', mime: 'audio/webm;codecs=opus', title: 'Cours 1', createdAt: 1000, duration: 12,
+      spans: [{ start: 1000, end: 13000, offset: 0 }],
+      transcript: { provider: 'whisper-local', model: 'onnx-community/whisper-base', language: 'fr', createdAt: 2000, segments: [{ start: 0, end: 4, text: 'La mitochondrie' }] },
+    };
+    putRecording(doc, rec);
+    const copy = jsonToDoc(JSON.parse(JSON.stringify(docToJson(doc))));
+    expect(listRecordings(copy)).toEqual([rec]);
+    expect(buildIndex('nb', copy).audio).toEqual([{ recordingId: 'r1', title: 'Cours 1', texts: ['La mitochondrie'] }]);
   });
 });

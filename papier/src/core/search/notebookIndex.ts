@@ -1,12 +1,16 @@
 import type * as Y from 'yjs';
-import { listPages, pageElements } from '../model/notebookDoc';
+import { listPages, listRecordings, pageElements } from '../model/notebookDoc';
 import type { ID, NotebookIndexRecord, NotebookRecord } from '../model/types';
 import { db } from '../storage/db';
 import { loadNotebookDoc } from '../storage/notebookStore';
 
-/** Extrait le texte tapé de chaque page (dans l'ordre z) et la page de PDF éventuelle. */
+/** Extrait le texte tapé de chaque page (dans l'ordre z), la page de PDF éventuelle et les transcriptions. */
 export function buildIndex(notebookId: ID, doc: Y.Doc): NotebookIndexRecord {
+  const audio = listRecordings(doc)
+    .filter((r) => r.transcript?.segments.length)
+    .map((r) => ({ recordingId: r.id, title: r.title, texts: r.transcript!.segments.map((s) => s.text) }));
   return {
+    ...(audio.length ? { audio } : {}),
     notebookId,
     updatedAt: Date.now(),
     pages: listPages(doc).map((p) => {

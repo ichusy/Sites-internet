@@ -29,6 +29,11 @@
   import { ensurePdfAnalyzed, pdfPageTexts } from '../../pdf/analyze';
   import { askConfirm } from '../common/dialogs.svelte';
   import Toolbar from './Toolbar.svelte';
+  import AudioPanel from './AudioPanel.svelte';
+  import AudioDock from './AudioDock.svelte';
+  import { NotebookAudio } from './audio.svelte';
+  import { searchTranscripts, type AudioHit } from '../../core/search/audioSearch';
+  import { parseQuery } from '../../core/search/match';
 
   let { id, q, page }: { id: string; q?: string; page?: number } = $props();
 
@@ -56,11 +61,32 @@
   let dropping = $state(false);
   let textReq = $state<TextEditRequest | null>(null);
   let textarea = $state<HTMLTextAreaElement>();
+  let audio = $state.raw<NotebookAudio | null>(null);
+  /** Outil repris quand on quitte le mode « toucher pour écouter ». */
+  let toolBeforeListen: ToolName = 'pen';
+  const listening = $derived(tool === 'listen');
+
+  function setListening(on: boolean) {
+    if (on && tool !== 'listen') {
+      toolBeforeListen = tool;
+      tool = 'listen';
+    } else if (!on && tool === 'listen') tool = toolBeforeListen;
+  }
+
+  // Sélection écrite pendant un enregistrement : bouton « Écouter » dans la barre de sélection.
+  const canListenSelection = $derived(!!selection && !!audio && !!editor && audio.recordings.length > 0 && audio.hasAudio(editor.selectedElements()));
+
+  const audioHits = $derived<AudioHit[]>(audio && panel === 'search' ? searchTranscripts(audio.recordings, parseQuery(searchQuery)) : []);
+
+  async function openAudioHit(h: AudioHit) {
+    const rec = audio?.recordings.find((r) => r.id === h.recordingId);
+    if (rec) await audio!.play(rec, h.start);
+  }
 
   function readPanelPref(): PanelTab | null {
     try {
       const v = localStorage.getItem(PANEL_KEY);
-      if (v === 'pages' || v === 'outline' || v === 'search') return v;
+      if (v === 'pages' || v === 'outline' || v === 'search' || v === 'audio') return v;
       if (v === 'none') return null;
       return window.innerWidth > 1000 ? 'pages' : null;
     } catch {
@@ -151,6 +177,8 @@
         }
       });
       const offLink = ed.onExternalLink((url) => void openExternal(url));
+      const notebookAudio = new NotebookAudio(ed, rec.id);
+      const offListen = ed.onListen((el) => void notebookAudio.listenTo([el]));
       const offText = ed.onTextEdit((req) => {
         textReq = req ? { ...req } : null;
         if (!req || !textarea) return;
@@ -169,8 +197,10 @@
         offText();
         offSearch();
         offLink();
+        offListen();
       };
       editor = ed;
+      audio = notebookAudio;
       infinite = ed.infinite;
       if (infinite && panel === 'pages') panel = null;
       if (page !== undefined) ed.scrollToPage(page);
@@ -186,7 +216,13 @@
       unsub?.();
       editor?.destroy();
       editor = null;
-      void opened?.close();
+      const a = audio;
+      audio = null;
+      // L'enregistrement en cours est sauvé dans le carnet avant sa fermeture.
+      void (async () => {
+        await a?.shutdown();
+        await opened?.close();
+      })();
     };
   });
 
@@ -356,6 +392,11 @@
       else if (key === 'l') tool = 'lasso';
       else if (key === 'h') tool = 'highlighter';
       else if (key === 'e') tool = 'eraser';
+      else if (key === 'r' && audio?.supported && audio.recState === 'idle') void audio.startRecording();
+      else if (key === ' ' && audio?.current) {
+        e.preventDefault();
+        audio.toggle();
+      }
       else if (key === '+' || key === '=') editor.zoomBy(1.25);
       else if (key === '-') editor.zoomBy(0.8);
       else if (key === '0') editor.fitWidth();
@@ -390,6 +431,9 @@
       oninsertimage={insertImage}
       onsticker={insertSticker}
       {infinite}
+      recording={!!audio && audio.recState !== 'idle'}
+      canRecord={!!audio?.supported}
+      onrecord={() => void audio?.startRecording()}
     />
     <div class="workspace">
       <div
@@ -409,19 +453,24 @@
         ondrop={onDrop}
       ></div>
       {#if editor && selection && tool === 'lasso' && selectionVisible(selection)}
-        <SelectionBar {editor} info={selection} />
+        <SelectionBar {editor} info={selection} canListen={canListenSelection} onlisten={() => void audio?.listenTo(editor!.selectedElements())} />
       {/if}
       {#if editor}
         <TextEditor {editor} req={textReq} {es} bind:textarea />
       {/if}
+      {#if audio}
+        <AudioDock {audio} panelOpen={panel === 'audio'} {listening} onlisten={setListening} />
+      {/if}
       {#if editor && panel}
-        <SidePanel bind:tab={panel} tabs={infinite ? ['outline', 'search'] : undefined}>
+        <SidePanel bind:tab={panel} tabs={infinite ? ['outline', 'search', 'audio'] : undefined}>
           {#if panel === 'pages'}
             <PagesPanel {editor} current={es.currentPage} pageCount={es.pageCount} />
           {:else if panel === 'outline'}
             <OutlinePanel {outlines} loading={pdfLoading} ongo={goToOutline} />
+          {:else if panel === 'audio'}
+            {#if audio}<AudioPanel {audio} {listening} onlisten={setListening} />{/if}
           {:else}
-            <SearchPanel bind:query={searchQuery} bind:input={searchInput} {hits} active={activeHit} pending={pdfLoading} onpick={(i) => editor?.focusSearchResult(i)} />
+            <SearchPanel bind:query={searchQuery} bind:input={searchInput} {hits} active={activeHit} pending={pdfLoading} onpick={(i) => editor?.focusSearchResult(i)} {audioHits} onaudio={openAudioHit} />
           {/if}
         </SidePanel>
       {/if}
@@ -458,6 +507,9 @@
   }
   .canvas-host[data-tool='text'] {
     cursor: text;
+  }
+  .canvas-host[data-tool='listen'] {
+    cursor: pointer;
   }
   .canvas-host.dropping {
     outline: 3px dashed var(--accent);

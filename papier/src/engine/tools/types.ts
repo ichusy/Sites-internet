@@ -1,11 +1,11 @@
 import type * as Y from 'yjs';
-import type { Brush, DashStyle, ID, Mat2D } from '../../core/model/types';
+import type { Brush, DashStyle, ID, Mat2D, PageElement } from '../../core/model/types';
 import type { PageLayout } from '../layout';
 import type { Renderer } from '../render/Renderer';
 import type { PageScene } from '../scene';
 import type { Viewport } from '../Viewport';
 
-export type ToolName = 'pen' | 'pencil' | 'highlighter' | 'eraser' | 'lasso' | 'text' | 'sticky' | 'connector';
+export type ToolName = 'pen' | 'pencil' | 'highlighter' | 'eraser' | 'lasso' | 'text' | 'sticky' | 'connector' | 'listen';
 
 /** Éléments sélectionnés au lasso (toujours sur une seule page). */
 export interface Selection {
@@ -112,6 +112,8 @@ export interface ToolContext {
   editText(req: TextEditRequest): void;
   /** Suit le lien PDF en (x, y) (coordonnées monde) ; vrai si un lien a été trouvé. */
   followLink(x: number, y: number): boolean;
+  /** Outil d'écoute : élément touché (l'interface lit l'audio du moment où il a été écrit). */
+  listen(el: PageElement): void;
 }
 
 /** Zone de texte à éditer, en coordonnées de page. */

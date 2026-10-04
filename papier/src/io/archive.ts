@@ -2,7 +2,7 @@ import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
 import * as Y from 'yjs';
 import { newId } from '../core/model/ids';
 import { docToJson, jsonToDoc, type NotebookJson } from '../core/model/serialize';
-import { listPages, pageElements, roots } from '../core/model/notebookDoc';
+import { listPages, listRecordings, pageElements, roots } from '../core/model/notebookDoc';
 import type { AssetRecord, FolderRecord, ID, NotebookRecord, TemplateRecord } from '../core/model/types';
 import { db } from '../core/storage/db';
 import { createNotebookDoc, loadNotebookDoc } from '../core/storage/notebookStore';
@@ -13,7 +13,7 @@ import { createNotebookDoc, loadNotebookDoc } from '../core/storage/notebookStor
  *   library.json             { folders, notebooks, templates } (modèles importés : sauvegarde complète)
  *   notebooks/<id>.json      contenu lisible (NotebookJson, voir FORMAT.md)
  *   notebooks/<id>.ydoc      état Yjs complet (restauration sans perte)
- *   assets/<sha256>.<ext>    fichiers importés (PDF, images)
+ *   assets/<sha256>.<ext>    fichiers importés (PDF, images) et enregistrements audio
  *   assets.json              [{ id, mime, size, file }]
  */
 export const ARCHIVE_FORMAT = 'papier-archive';
@@ -27,9 +27,22 @@ const EXT: Record<string, string> = {
   'image/webp': 'webp',
   'image/avif': 'avif',
   'image/bmp': 'bmp',
+  'audio/webm': 'webm',
+  'audio/ogg': 'ogg',
+  'audio/mp4': 'm4a',
+  'audio/mpeg': 'mp3',
+  'audio/wav': 'wav',
+  'audio/x-wav': 'wav',
+  'audio/aac': 'aac',
+  'audio/flac': 'flac',
 };
 
-/** Fichiers utilisés par un carnet : fonds de page, modèles importés, images et autocollants. */
+/** Extension de fichier d'un type MIME (paramètres comme « ;codecs=opus » ignorés). */
+export function extensionOf(mime: string): string {
+  return EXT[mime.split(';')[0].trim().toLowerCase()] ?? 'bin';
+}
+
+/** Fichiers utilisés par un carnet : fonds de page, modèles importés, images, autocollants, audio. */
 function assetIdsOf(doc: Y.Doc): Set<ID> {
   const ids = new Set<ID>();
   for (const p of listPages(doc)) {
@@ -37,6 +50,7 @@ function assetIdsOf(doc: Y.Doc): Set<ID> {
     if (p.template.source) ids.add(p.template.source.assetId);
     for (const el of pageElements(doc, p.id)?.values() ?? []) if (el.type === 'image') ids.add(el.assetId);
   }
+  for (const r of listRecordings(doc)) ids.add(r.assetId);
   return ids;
 }
 
@@ -63,7 +77,7 @@ export async function exportArchive(notebookIds: ID[], includeFolders: boolean):
   for (const id of assetIds) {
     const rec = await db.assets.get(id);
     if (!rec) continue;
-    const file = `assets/${id}.${EXT[rec.mime] ?? 'bin'}`;
+    const file = `assets/${id}.${extensionOf(rec.mime)}`;
     // Fichiers déjà compressés : stockés sans recompression.
     files[file] = [new Uint8Array(await rec.blob.arrayBuffer()), { level: 0 }];
     assetIndex.push({ id, mime: rec.mime, size: rec.size, file });

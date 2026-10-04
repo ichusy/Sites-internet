@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import { newId } from './ids';
-import type { ID, PageData, PageElement, TemplateRef } from './types';
+import type { ID, PageData, PageElement, RecordingData, TemplateRef } from './types';
 
 /**
  * Schéma Yjs d'un carnet (un Y.Doc par carnet) :
@@ -10,6 +10,7 @@ import type { ID, PageData, PageElement, TemplateRef } from './types';
  *   pages      Y.Map<ID, Y.Map>          une Y.Map par page :
  *                 id, width, height, template, background?   (valeurs simples)
  *                 elements: Y.Map<ID, PageElement>          (objets immuables, remplacés en bloc)
+ *   recordings Y.Map<ID, RecordingData>  enregistrements audio (hors historique d'annulation)
  */
 
 /** v2 : crayon, formes, texte, images, modèles Cornell/planner/importés (rétrocompatible avec v1). */
@@ -26,7 +27,21 @@ export function roots(doc: Y.Doc) {
     meta: doc.getMap<unknown>('meta'),
     pageOrder: doc.getArray<ID>('pageOrder'),
     pages: doc.getMap<PageMap>('pages'),
+    recordings: doc.getMap<RecordingData>('recordings'),
   };
+}
+
+/** Enregistrements du carnet, du plus ancien au plus récent. */
+export function listRecordings(doc: Y.Doc): RecordingData[] {
+  return [...roots(doc).recordings.values()].sort((a, b) => a.createdAt - b.createdAt);
+}
+
+export function putRecording(doc: Y.Doc, rec: RecordingData) {
+  roots(doc).recordings.set(rec.id, rec);
+}
+
+export function deleteRecording(doc: Y.Doc, id: ID) {
+  roots(doc).recordings.delete(id);
 }
 
 export function initNotebook(doc: Y.Doc, title: string, firstPage: Omit<PageData, 'id'>) {

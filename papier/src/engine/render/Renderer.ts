@@ -54,6 +54,11 @@ export class Renderer {
   /** Dessin supplémentaire sur le calque d'encre fraîche (lasso, sélection), en pixels physiques. */
   overlay: ((ctx: CanvasRenderingContext2D) => void) | null = null;
   deskColor = '#e9e6e0';
+  /**
+   * Relecture synchronisée avec l'audio : éléments à estomper (pas encore écrits à ce moment).
+   * Tant qu'elle est active, les pages sont dessinées en vectoriel direct, sans cache.
+   */
+  ghost: ((item: RenderItem) => boolean) | null = null;
 
   /** Images et fonds disponibles pour les outils (aperçus). */
   get resources() {
@@ -140,7 +145,7 @@ export class Renderer {
         ctx.setTransform(target, 0, 0, target, (l.x * vp.zoom + vp.panX) * dpr, (l.y * vp.zoom + vp.panY) * dpr);
         drawBoardBackground(ctx, scene.page, rect, target);
         const items = scene.query(rect).filter((i) => !scene.hidden.has(i.id)).sort((a, b) => a.z - b.z);
-        drawItems(ctx, items, this.src.backgrounds, lookup);
+        drawItems(ctx, items, this.src.backgrounds, lookup, this.ghost);
         ctx.restore();
         scene.dirty = 'clean';
         scene.pending = [];
@@ -156,8 +161,8 @@ export class Renderer {
       ctx.fillRect(sx + dpr, sy + 2 * dpr, sw, sh);
 
       const maxScale = Math.sqrt(MAX_CACHE_PIXELS / (l.width * l.height));
-      if (target > maxScale * 1.05) {
-        // Zoom très fort : rendu vectoriel direct de la seule partie visible.
+      if (target > maxScale * 1.05 || this.ghost) {
+        // Zoom très fort (ou relecture audio) : rendu vectoriel direct de la seule partie visible.
         this.caches.delete(l.id);
         scene.dirty = 'clean';
         scene.pending = [];
@@ -170,7 +175,7 @@ export class Renderer {
         ctx.rect(sx, sy, sw, sh);
         ctx.clip();
         ctx.setTransform(target, 0, 0, target, sx, sy);
-        drawPageContent(ctx, scene.page, items, target, this.src.backgrounds, lookup);
+        drawPageContent(ctx, scene.page, items, target, this.src.backgrounds, lookup, this.ghost);
         ctx.restore();
         continue;
       }

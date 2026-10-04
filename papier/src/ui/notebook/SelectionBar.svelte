@@ -1,9 +1,16 @@
 <script lang="ts">
-  import { Copy, CopyPlus, Scissors, Trash2 } from '@lucide/svelte';
+  import { Copy, CopyPlus, Ear, Scissors, Trash2 } from '@lucide/svelte';
   import type { Editor, SelectionInfo } from '../../engine/Editor';
   import { settings } from '../settings.svelte';
 
-  let { editor, info }: { editor: Editor; info: SelectionInfo } = $props();
+  interface Props {
+    editor: Editor;
+    info: SelectionInfo;
+    /** La sélection a été écrite pendant un enregistrement : on peut l'écouter. */
+    canListen?: boolean;
+    onlisten?: () => void;
+  }
+  let { editor, info, canListen = false, onlisten }: Props = $props();
 
   let bar = $state<HTMLDivElement>();
   let size = $state({ w: 320, h: 44 });
@@ -27,6 +34,9 @@
 
 <div bind:this={bar} class="selection-bar" class:hidden={info.dragging} style:left="{pos.x}px" style:top="{pos.y}px" role="toolbar" aria-label="Sélection">
   <span class="count">{info.count} élément{info.count > 1 ? 's' : ''}</span>
+  {#if canListen}
+    <button type="button" class="icon-btn listen" title="Écouter ce qui se disait à ce moment" aria-label="Écouter" onclick={() => onlisten?.()}><Ear size={17} /></button>
+  {/if}
   <span class="sep"></span>
   {#each settings.penPalette as c (c)}
     <button type="button" class="swatch" style:background={c} aria-label="Recolorer en {c}" title="Recolorer" onclick={() => editor.recolorSelection(c)}></button>
@@ -76,5 +86,8 @@
   }
   .danger {
     color: var(--danger);
+  }
+  .listen {
+    color: var(--accent);
   }
 </style>

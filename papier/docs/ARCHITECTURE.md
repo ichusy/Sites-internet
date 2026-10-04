@@ -14,6 +14,8 @@
 | Lecture des PDF | pdf.js (build *legacy*, chargé à la demande, worker) |
 | Écriture des PDF | pdf-lib (chargé à la demande) |
 | Archives `.papier` | fflate (zip) |
+| Audio | MediaRecorder (Opus / AAC), Web Audio (décodage, vumètre) |
+| Transcription | transformers.js + ONNX Runtime Web (Whisper, dans un worker ; wasm servi par l'app) |
 
 Pourquoi Yjs dès le départ : le même modèle fournit l'annulation illimitée
 (`Y.UndoManager`, limitée aux modifications locales), la persistance
@@ -27,6 +29,7 @@ src/
 ├─ main.ts                 point d'entrée (thème, service worker, stockage persistant)
 ├─ app.css                 variables de thème clair/sombre, styles de base
 ├─ core/                   données, sans dépendance à l'interface
+│  ├─ audio/               chronologie horloge ↔ audio, enregistreur, découpage et nettoyage des transcriptions
 │  ├─ model/               types, schéma Yjs, encodage des points, formats de papier
 │  ├─ search/              normalisation, correspondances, index des carnets, recherche bibliothèque
 │  └─ storage/             Dexie (bibliothèque), ouverture/création des Y.Doc
@@ -41,7 +44,9 @@ src/
 │  ├─ geometry/            distances, gomme partielle, matrices, polygones,
 │  │                       reconnaissance de formes / gribouillis (recognize.ts)
 │  ├─ render/              + grain du crayon, mise en page du texte, modèles (primitives)
-│  └─ tools/               stylo, crayon & surligneur (InkTool), gomme, lasso, texte
+│  └─ tools/               stylo, crayon & surligneur (InkTool), gomme, lasso, texte, post-it,
+│                          connecteur, écoute (ListenTool)
+├─ audio/                  transcription : moteurs (abstraction), Whisper local (worker), décodage 16 kHz
 ├─ pdf/                    pdf.js (chargement), import PDF/images, export PDF,
 │                          analyse (texte positionné, sommaire, liens)
 ├─ io/                     archives .papier, sélection et enregistrement de fichiers
@@ -150,6 +155,37 @@ src/
 - **Export PDF** : une page infinie devient une page à la taille du contenu
   (+ 32 pt de marge), sans modèle ; post-its et connecteurs y sont vectoriels.
 
+## Étape 5 : audio synchronisé et transcription
+
+- **Synchronisation sans nouveau champ** : chaque élément porte déjà son instant de
+  création (`t0` des traits, `z` = horodatage pour les autres, voir `nextZ`).
+  Un enregistrement garde ses **plages horaires** (`spans` : début, fin, position
+  dans le fichier) ; `core/audio/timeline.ts` convertit dans les deux sens, pauses
+  comprises. Écouter un trait = `audioTimeAt(spans, t0) − 2 s`.
+- **Enregistreur** (`core/audio/recorder.ts`) : MediaRecorder, un morceau par
+  seconde écrit dans IndexedDB (`recchunks`) avec les plages (`recdrafts`). À
+  l'arrêt, les morceaux sont assemblés en un fichier (`assets`) et l'enregistrement
+  ajouté au Y.Doc (hors historique d'annulation). Un brouillon abandonné depuis
+  plus de 10 s est récupéré à l'ouverture du carnet.
+- **Relecture** : `Editor.setReplay(t)` installe un prédicat « fantôme » dans le
+  Renderer ; les pages passent en rendu vectoriel direct (sans cache) et les
+  éléments postérieurs à `t` sont dessinés à 16 % d'opacité. On ne redessine que
+  lorsque le nombre d'éléments visibles change.
+- **Transcription** (`src/audio/`) : interface `Transcriber` et registre ; la couche
+  IA (étape 8) y ajoutera des moteurs distants. Moteur fourni : Whisper
+  (transformers.js) dans un worker. L'audio est décodé en mono 16 kHz, découpé
+  en blocs d'environ 5 min **coupés dans les silences** (aucun mot tranché,
+  progression mesurable, phrases affichées bloc par bloc), chaque bloc passe par
+  le pipeline Whisper (fenêtres de 30 s, horodatage des phrases). Annuler arrête
+  le worker immédiatement ; le modèle se recharge depuis le cache. Les blocs silencieux sont ignorés et les « hallucinations »
+  classiques de Whisper (Amara.org, répétitions) filtrées.
+- **Hors ligne** : ONNX Runtime (wasm) est copié dans `ort/` et servi par
+  l'application (jamais par un CDN) ; transformers.js garde le modèle dans le
+  cache du navigateur (`transformers-cache`). Ces gros fichiers sont exclus du
+  précache du service worker : ils ne se téléchargent que si l'on transcrit.
+- **Recherche** : transcriptions dans `searchindex.audio` (bibliothèque) et
+  recherche directe dans le carnet (`core/search/audioSearch.ts`).
+
 ## Export PDF
 
 - Page issue d'un PDF : la page d'origine est **recopiée** (pdf-lib `copyPages`),
@@ -175,7 +211,7 @@ src/
 | 2 | Crayon, gribouiller-pour-effacer, formes, texte, images, autocollants, modèles Cornell/planner/importés | ✅ |
 | 3 | PDF : sommaire, liens ; recherche plein texte | ✅ |
 | 4 | Canevas infini, post-its, connecteurs | ✅ |
-| 5 | Audio synchronisé, transcription | |
+| 5 | Audio synchronisé, transcription | ✅ |
 | 6 | Reconnaissance d'écriture, recherche manuscrite | |
 | 7 | Flashcards (SM-2) | |
 | 8 | Couche IA optionnelle | |

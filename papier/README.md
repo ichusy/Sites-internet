@@ -6,7 +6,9 @@ Fonctionne entièrement hors ligne : les données restent dans le navigateur (In
 
 ## Lancer
 
-Prérequis : Node.js 20 ou plus récent.
+Prérequis : Node.js 20 ou plus récent. (Le fichier `.npmrc` évite à `npm install`
+de télécharger les binaires natifs d'ONNX Runtime pour Node, inutiles ici : la
+transcription tourne dans le navigateur.)
 
 ```bash
 cd papier
@@ -44,6 +46,7 @@ depuis n'importe quel sous-dossier (GitHub Pages, Netlify, serveur web…).
 | Zoomer | pincer | Ctrl/⌘ + molette, pincement trackpad, `+` / `-`, `0` = ajuster |
 | Annuler / rétablir | tap 2 doigts / tap 3 doigts | Ctrl/⌘+Z / Ctrl/⌘+Maj+Z |
 | Outils | barre d'outils | `P` stylo, `C` crayon, `H` surligneur, `E` gomme, `L` lasso, `T` texte, `N` post-it, `K` connecteur |
+| Audio | micro de la barre d'outils | `R` enregistrer, `Espace` lecture / pause |
 | Sélection (lasso) | entourer, ou toucher un trait | Ctrl/⌘+C / X / V / D, Suppr, Échap, Ctrl/⌘+A |
 
 **Lasso** : entourez des traits (ou touchez-en un) pour les sélectionner, glissez
@@ -84,6 +87,27 @@ disparaissent avec eux. Partir ou arriver dans le vide crée une extrémité lib
 Couleur, épaisseur et flèches (aucune, à la fin, aux deux bouts) dans la barre
 d'outils. Disponibles aussi dans les carnets de pages.
 
+**Audio synchronisé** (micro de la barre d'outils, ou `R`) :
+- Pendant l'enregistrement, une pastille en haut de la page affiche la durée et le
+  niveau sonore ; elle permet de mettre en pause, reprendre et arrêter. L'audio
+  est écrit sur l'appareil au fil de l'eau : si l'onglet se ferme, l'enregistrement
+  est récupéré à la prochaine ouverture du carnet.
+- Onglet *Audio* du panneau latéral : liste des enregistrements, lecteur (±10 s,
+  vitesse 0,75× à 2×). Pendant la lecture, l'écriture **réapparaît au rythme de la
+  voix** (ce qui n'était pas encore écrit est estompé) et la vue suit ce qui s'écrit.
+- *Toucher l'écriture pour écouter* (bouton oreille) : toucher un trait, un texte
+  ou une image fait entendre ce qui se disait quand il a été écrit (2 s avant).
+  Même chose depuis une sélection au lasso (bouton oreille de la barre de sélection).
+- *Importer* : un fichier audio existant (mp3, m4a, wav…), lisible et transcriptible
+  (sans synchronisation, puisqu'il n'a pas été enregistré pendant l'écriture).
+- **Transcription** : bouton *Transcrire*. Whisper fonctionne dans le navigateur
+  (WebGPU s'il est disponible, sinon le processeur) : l'audio ne quitte pas
+  l'appareil. Le modèle (*Rapide* ~40 Mo, *Équilibré* ~80 Mo, *Précis* ~250 Mo)
+  est téléchargé depuis Hugging Face à la première utilisation, puis disponible
+  hors ligne. Les phrases s'affichent au fil de la transcription ; toucher une
+  phrase lit l'audio à cet endroit. Export en texte (.txt) ou sous-titres (.vtt).
+- Les transcriptions sont cherchables dans le carnet et dans la bibliothèque.
+
 **Modèles de page** : blanc, ligné, quadrillé, pointillé, Cornell, semainier, ou
 *Importer un modèle…* (une image ou la 1re page d'un PDF), depuis le menu d'une
 page ou à la création d'un carnet.
@@ -119,7 +143,11 @@ qu'aucun stylet n'a été détecté), *Toujours* ou *Jamais*.
 
 ## Compatibilité
 
-Navigateurs récents (Safari/iPadOS 16.4+, Chrome/Edge, Firefox). Les PDF sont lus
+Navigateurs récents (Safari/iPadOS 16.4+, Chrome/Edge, Firefox). Enregistrement
+audio : Opus (WebM/Ogg) sur Chrome, Edge, Firefox ; AAC (MP4) sur Safari. La
+transcription demande un appareil récent (WebGPU accélère nettement sur Chrome,
+Edge et Safari 26) ; une heure d'audio occupe environ 230 Mo de mémoire pendant
+la transcription. Les PDF sont lus
 avec la version « legacy » de pdf.js, qui embarque les compléments nécessaires aux
 navigateurs un peu plus anciens. pdf.js n'est téléchargé qu'à la première ouverture
 d'un PDF, puis gardé en cache pour le hors-ligne.

@@ -1,11 +1,8 @@
 import type { BBox, Mat2D } from '../../core/model/types';
-import {
-  applyMat, distPointSeg, fractionInside, IDENTITY, invertMat, rotateAboutMat, scaleAboutMat, translateMat, unionBBox,
-} from '../geometry/geom';
-import { POINT_STRIDE } from '../../core/model/pointCodec';
+import { fractionInside, IDENTITY, rotateAboutMat, scaleAboutMat, translateMat, unionBBox } from '../geometry/geom';
 import { drawItem } from '../render/draw';
 import { pageAt, type PageLayout } from '../layout';
-import { isBox, strokeHalfWidth, type PageScene } from '../scene';
+import { pickAt } from './boxHit';
 import type { Selection, Tool, ToolContext, ToolInput } from './types';
 
 /** Rayon de saisie des poignées, en pixels écran. */
@@ -150,7 +147,7 @@ export class LassoTool implements Tool {
     let ids: string[];
     if (length * zoom < 6) {
       // Simple toucher : sélectionne le trait le plus haut sous le doigt / la pointe.
-      ids = this.pickAt(scene, poly[0], poly[1], 8 / zoom);
+      ids = pickAt(scene, poly[0], poly[1], 8 / zoom);
       // Toucher hors de tout élément : suit le lien PDF éventuel.
       if (!ids.length && this.ctx.followLink(page.x + poly[0], page.y + poly[1])) {
         this.ctx.setSelection(null);
@@ -171,28 +168,6 @@ export class LassoTool implements Tool {
         .map((item) => item.id);
     }
     this.ctx.setSelection(ids.length ? { pageId: page.id, ids } : null);
-  }
-
-  private pickAt(scene: PageScene, x: number, y: number, tol: number): string[] {
-    const hits = scene.query([x - tol, y - tol, x + tol, y + tol]).sort((a, b) => b.z - a.z);
-    for (const item of hits) {
-      if (isBox(item.el)) {
-        // Texte, image, post-it : toucher à l'intérieur du rectangle (transformé).
-        const [u, v] = applyMat(invertMat(item.matrix!), x, y);
-        const el = item.el;
-        if (u >= el.x - tol && u <= el.x + el.width + tol && v >= el.y - tol && v <= el.y + el.height + tol) return [item.id];
-        continue;
-      }
-      const pts = item.pts;
-      const thr = tol + strokeHalfWidth(item.el);
-      const n = pts.length / POINT_STRIDE;
-      for (let k = 0; k < Math.max(1, n - 1); k++) {
-        const j = k * POINT_STRIDE;
-        const e = Math.min(k + 1, n - 1) * POINT_STRIDE;
-        if (distPointSeg(x, y, pts[j], pts[j + 1], pts[e], pts[e + 1]) <= thr) return [item.id];
-      }
-    }
-    return [];
   }
 
   /** Dessin sur le calque d'encre fraîche (pixels physiques). */

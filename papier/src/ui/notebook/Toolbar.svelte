@@ -1,10 +1,10 @@
 <script lang="ts">
   import {
-    ChevronLeft, ClipboardPaste, Eraser, FilePlus, Highlighter, ImagePlus, LassoSelect, PanelRight, Pen, Pencil, Redo2,
-    Search, SlidersHorizontal, Spline, StickyNote, TableOfContents, Type, Undo2, X,
+    ChevronLeft, ClipboardPaste, Eraser, FilePlus, Highlighter, ImagePlus, LassoSelect, Mic, PanelRight, Pen, Pencil,
+    Redo2, Search, SlidersHorizontal, Spline, StickyNote, Type, Undo2, X,
   } from '@lucide/svelte';
   import type { PanelTab } from './SidePanel.svelte';
-  import type { Component } from 'svelte';
+  import { untrack, type Component } from 'svelte';
   import Menu, { type MenuItem } from '../common/Menu.svelte';
   import type { Brush, DashStyle } from '../../core/model/types';
   import type { EditorState } from '../../engine/Editor';
@@ -33,13 +33,28 @@
     onsticker: (s: Sticker) => void;
     /** Tableau blanc : pas de pages à ajouter, « tout voir » au lieu d'« ajuster à la largeur ». */
     infinite: boolean;
+    /** Enregistrement audio en cours (ou en pause). */
+    recording: boolean;
+    /** Le micro est-il utilisable dans ce navigateur ? */
+    canRecord: boolean;
+    onrecord: () => void;
   }
   let {
     title, tool = $bindable(), es, panel = $bindable(), onrename, onundo, onredo, onaddpage, onfit, canPaste, onpaste, docItems,
-    oninsertimage, onsticker, infinite,
+    oninsertimage, onsticker, infinite, recording, canRecord, onrecord,
   }: Props = $props();
 
   const styles = settings.styles;
+
+  // Un seul bouton pour le panneau (pages, sommaire, audio) : il rouvre le dernier onglet utilisé.
+  let lastTab = $state<PanelTab>(untrack(() => (panel && panel !== 'search' ? panel : 'pages')));
+  $effect(() => {
+    if (panel && panel !== 'search') lastTab = panel;
+  });
+  const sideOpen = $derived(!!panel && panel !== 'search');
+  function toggleSide() {
+    panel = sideOpen ? null : infinite && lastTab === 'pages' ? 'audio' : lastTab;
+  }
 
   const TOOLS: { id: ToolName; label: string; key: string; icon: Component }[] = [
     { id: 'pen', label: 'Stylo', key: 'P', icon: Pen },
@@ -148,7 +163,10 @@
 
     <span class="sep"></span>
 
-    {#if tool === 'lasso'}
+    {#if tool === 'listen'}
+      <span class="hint">Touchez l’écriture pour entendre ce qui se disait à ce moment</span>
+      <button type="button" class="btn small" onclick={() => (tool = 'pen')}>Terminer</button>
+    {:else if tool === 'lasso'}
       <span class="hint">Entourez ou touchez des éléments pour les sélectionner</span>
       <button type="button" class="btn small" disabled={!canPaste} title="Coller (Ctrl+V)" onclick={onpaste}>
         <ClipboardPaste size={16} /> Coller
@@ -288,6 +306,11 @@
     <button type="button" class="icon-btn" disabled={!es.canUndo} title="Annuler (Ctrl+Z, tap à 2 doigts)" aria-label="Annuler" onclick={onundo}><Undo2 size={19} /></button>
     <button type="button" class="icon-btn" disabled={!es.canRedo} title="Rétablir (Ctrl+Maj+Z, tap à 3 doigts)" aria-label="Rétablir" onclick={onredo}><Redo2 size={19} /></button>
     <span class="sep"></span>
+    {#if canRecord}
+      <button type="button" class="icon-btn" class:rec={recording} title={recording ? 'Enregistrement en cours' : 'Enregistrer l’audio (R)'} aria-label={recording ? 'Enregistrement en cours' : 'Enregistrer l’audio'} disabled={recording} onclick={onrecord}>
+        <Mic size={19} />
+      </button>
+    {/if}
     <button type="button" class="zoom" title={infinite ? 'Tout voir (0)' : 'Ajuster à la largeur (0)'} onclick={onfit}>{Math.round(es.zoom * 100)} %</button>
     {#if !infinite}
       <span class="page-indicator" title="Page courante">{es.currentPage + 1}/{es.pageCount}</span>
@@ -296,19 +319,19 @@
     <button type="button" class="icon-btn" class:active={panel === 'search'} aria-pressed={panel === 'search'} title="Rechercher (Ctrl+F)" aria-label="Rechercher" onclick={() => (panel = panel === 'search' ? null : 'search')}>
       <Search size={19} />
     </button>
-    <button type="button" class="icon-btn" class:active={panel === 'outline'} aria-pressed={panel === 'outline'} title="Sommaire" aria-label="Sommaire" onclick={() => (panel = panel === 'outline' ? null : 'outline')}>
-      <TableOfContents size={19} />
+    <button type="button" class="icon-btn" class:active={sideOpen} aria-pressed={sideOpen} title="Panneau latéral : {infinite ? '' : 'pages, '}sommaire, audio" aria-label="Panneau latéral" onclick={toggleSide}>
+      <PanelRight size={19} />
     </button>
-    {#if !infinite}
-      <button type="button" class="icon-btn" class:active={panel === 'pages'} aria-pressed={panel === 'pages'} title="Pages" aria-label="Panneau des pages" onclick={() => (panel = panel === 'pages' ? null : 'pages')}>
-        <PanelRight size={19} />
-      </button>
-    {/if}
     <Menu items={docItems} label="Importer, exporter…" />
   </div>
 </header>
 
 <style>
+  .icon-btn.rec,
+  .icon-btn.rec:disabled {
+    color: #d93a3a;
+    opacity: 1;
+  }
   .toolbar {
     height: var(--toolbar-h);
     flex: none;
@@ -328,7 +351,8 @@
   }
   .left {
     flex: 1 1 0;
-    min-width: 0;
+    /* Le bouton de retour reste toujours visible ; seul le titre se réduit. */
+    min-width: 44px;
   }
   .right {
     flex: 1 1 0;

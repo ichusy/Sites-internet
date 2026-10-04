@@ -9,7 +9,10 @@ export interface LibraryHit {
   title: string;
   pageIndex: number;
   snippet: Snippet;
-  source: 'text' | 'pdf';
+  source: 'text' | 'pdf' | 'audio';
+  /** Résultat dans une transcription (pageIndex vaut alors -1). */
+  recordingId?: ID;
+  recordingTitle?: string;
 }
 
 const MAX_PER_NOTEBOOK = 20;
@@ -61,6 +64,15 @@ export async function searchLibrary(query: string, onStatus?: (msg: string | nul
       if (!range) continue;
       hits.push({ notebookId: nb.id, title: nb.title, pageIndex: i, snippet: makeSnippet(text, range), source });
       count++;
+      if (hits.length >= MAX_HITS) return hits;
+    }
+    // Transcriptions : un résultat par enregistrement.
+    for (const a of idx.audio ?? []) {
+      const text = a.texts.join('\n');
+      if (!matchesAll(text, terms)) continue;
+      const range = findRanges(text, terms)[0];
+      if (!range) continue;
+      hits.push({ notebookId: nb.id, title: nb.title, pageIndex: -1, snippet: makeSnippet(text, range), source: 'audio', recordingId: a.recordingId, recordingTitle: a.title });
       if (hits.length >= MAX_HITS) return hits;
     }
   }

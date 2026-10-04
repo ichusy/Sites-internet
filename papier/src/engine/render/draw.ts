@@ -74,7 +74,8 @@ export function drawTemplate(ctx: CanvasRenderingContext2D, page: PageData, scal
 }
 
 function drawStroke(ctx: CanvasRenderingContext2D, el: StrokeElement, path: Path2D) {
-  ctx.globalAlpha = el.opacity;
+  // Multiplie l'opacité courante : un élément « fantôme » (relecture audio) reste estompé.
+  ctx.globalAlpha *= el.opacity;
   if (el.tool === 'highlighter') {
     // Le surligneur « multiplie » : il colore le papier sans masquer l'encre ni le texte du PDF.
     ctx.globalCompositeOperation = 'multiply';
@@ -224,13 +225,34 @@ export function drawPageContent(
   scale: number,
   res?: RenderResources | null,
   lookup?: ItemLookup | null,
+  ghost?: ((item: RenderItem) => boolean) | null,
 ) {
   drawTemplate(ctx, page, scale, res);
-  drawItems(ctx, items, res, lookup);
+  drawItems(ctx, items, res, lookup, ghost);
 }
 
-/** Surligneurs d'abord (derrière l'encre), puis le reste dans l'ordre z. */
-export function drawItems(ctx: CanvasRenderingContext2D, items: RenderItem[], res?: RenderResources | null, lookup?: ItemLookup | null) {
-  for (const item of items) if (isHighlight(item.el)) drawItem(ctx, item, res, undefined, lookup);
-  for (const item of items) if (!isHighlight(item.el)) drawItem(ctx, item, res, undefined, lookup);
+/** Opacité des éléments pas encore écrits pendant la relecture synchronisée avec l'audio. */
+export const GHOST_ALPHA = 0.16;
+
+/**
+ * Surligneurs d'abord (derrière l'encre), puis le reste dans l'ordre z.
+ * `ghost` : éléments à estomper (relecture de l'écriture au rythme de l'audio).
+ */
+export function drawItems(
+  ctx: CanvasRenderingContext2D,
+  items: RenderItem[],
+  res?: RenderResources | null,
+  lookup?: ItemLookup | null,
+  ghost?: ((item: RenderItem) => boolean) | null,
+) {
+  const draw = (item: RenderItem) => {
+    if (ghost?.(item)) {
+      ctx.save();
+      ctx.globalAlpha = GHOST_ALPHA;
+      drawItem(ctx, item, res, undefined, lookup);
+      ctx.restore();
+    } else drawItem(ctx, item, res, undefined, lookup);
+  };
+  for (const item of items) if (isHighlight(item.el)) draw(item);
+  for (const item of items) if (!isHighlight(item.el)) draw(item);
 }

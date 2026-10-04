@@ -1,6 +1,8 @@
 <script lang="ts">
   import { ChevronDown, ChevronUp, X } from '@lucide/svelte';
   import type { PageHits } from '../../engine/search';
+  import type { AudioHit } from '../../core/search/audioSearch';
+  import { formatTime } from '../../core/audio/timeline';
 
   interface Props {
     query: string;
@@ -9,8 +11,11 @@
     pending: boolean;
     onpick: (i: number) => void;
     input?: HTMLInputElement;
+    /** Phrases trouvées dans les transcriptions audio. */
+    audioHits?: AudioHit[];
+    onaudio?: (h: AudioHit) => void;
   }
-  let { query = $bindable(), hits, active, pending, onpick, input = $bindable() }: Props = $props();
+  let { query = $bindable(), hits, active, pending, onpick, input = $bindable(), audioHits = [], onaudio }: Props = $props();
 
   const total = $derived(hits.reduce((n, h) => n + h.count, 0));
 
@@ -50,6 +55,8 @@
       <span>
         {#if hits.length}
           {total} occurrence{total > 1 ? 's' : ''} sur {hits.length} page{hits.length > 1 ? 's' : ''}
+        {:else if audioHits.length}
+          Rien dans les pages
         {:else}
           Aucun résultat
         {/if}
@@ -60,18 +67,33 @@
       </span>
     </div>
     {#if pending}<p class="hint">Analyse des PDF en cours : les résultats se complètent…</p>{/if}
-    <ol class="results">
-      {#each hits as h, i (h.pageId)}
-        <li>
-          <button type="button" class:active={i === active} onclick={() => onpick(i)}>
-            <span class="page">Page {h.index + 1}{h.count > 1 ? ` · ${h.count} occurrences` : ''}</span>
-            <span class="snippet">{h.snippet.before}<mark>{h.snippet.match}</mark>{h.snippet.after}</span>
-          </button>
-        </li>
-      {/each}
-    </ol>
+    <div class="lists">
+      <ol class="results">
+        {#each hits as h, i (h.pageId)}
+          <li>
+            <button type="button" class:active={i === active} onclick={() => onpick(i)}>
+              <span class="page">Page {h.index + 1}{h.count > 1 ? ` · ${h.count} occurrences` : ''}</span>
+              <span class="snippet">{h.snippet.before}<mark>{h.snippet.match}</mark>{h.snippet.after}</span>
+            </button>
+          </li>
+        {/each}
+      </ol>
+      {#if audioHits.length}
+        <h3 class="group">Dans l’audio ({audioHits.length})</h3>
+        <ol class="results audio">
+          {#each audioHits as h, i (i)}
+            <li>
+              <button type="button" onclick={() => onaudio?.(h)}>
+                <span class="page">{h.title} · {formatTime(h.start)}</span>
+                <span class="snippet">{h.snippet.before}<mark>{h.snippet.match}</mark>{h.snippet.after}</span>
+              </button>
+            </li>
+          {/each}
+        </ol>
+      {/if}
+    </div>
   {:else}
-    <p class="hint">Cherche dans le texte tapé et dans le texte des PDF importés (sans tenir compte des accents ni des majuscules). L’écriture manuscrite viendra avec la reconnaissance d’écriture.</p>
+    <p class="hint">Cherche dans le texte tapé, le texte des PDF importés et les transcriptions audio (sans tenir compte des accents ni des majuscules). L’écriture manuscrite viendra avec la reconnaissance d’écriture.</p>
   {/if}
 </div>
 
@@ -119,12 +141,22 @@
     padding: 6px 12px;
     margin: 0;
   }
+  .group {
+    margin: 4px 14px 0;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+  }
+  .lists {
+    flex: 1;
+    overflow: auto;
+    padding-bottom: 24px;
+  }
   .results {
     list-style: none;
     margin: 4px 0 0;
-    padding: 0 6px 24px;
-    overflow: auto;
-    flex: 1;
+    padding: 0 6px;
   }
   .results button {
     display: flex;

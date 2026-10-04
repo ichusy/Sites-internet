@@ -4,6 +4,21 @@ import type { ToolStyles } from '../engine/tools/types';
 export type ThemePref = 'system' | 'light' | 'dark';
 export type LibrarySort = 'updatedAt' | 'createdAt' | 'openedAt' | 'title';
 
+/** Préférences audio : transcription et relecture. */
+export interface AudioSettings {
+  /** Moteur de transcription (voir src/audio/transcribe.ts). */
+  engine: string;
+  model: string;
+  /** Langue parlée (« fr »…) ou « auto ». */
+  language: string;
+  /** Relecture : estomper ce qui n'était pas encore écrit au moment écouté. */
+  replay: boolean;
+  /** Relecture : faire défiler jusqu'à ce qui s'écrit. */
+  follow: boolean;
+  /** Vitesse de lecture. */
+  rate: number;
+}
+
 export interface Settings {
   theme: ThemePref;
   fingerDrawing: FingerDrawing;
@@ -12,6 +27,7 @@ export interface Settings {
   highlighterPalette: string[];
   pencilPalette: string[];
   librarySort: LibrarySort;
+  audio: AudioSettings;
 }
 
 export const PEN_WIDTHS = [0.6, 1.1, 1.8, 3];
@@ -39,6 +55,7 @@ const DEFAULTS: Settings = {
   highlighterPalette: ['#fff27a', '#b6f0a0', '#a8d8ff', '#ffb3d1', '#ffd28a'],
   pencilPalette: ['#3b3f47', '#6b7280', '#8a5a3c', '#2f5fd0', '#b4363a'],
   librarySort: 'updatedAt',
+  audio: { engine: 'whisper-local', model: 'onnx-community/whisper-base', language: 'fr', replay: true, follow: true, rate: 1 },
 };
 
 const KEY = 'papier-settings';
@@ -61,6 +78,7 @@ function load(): Settings {
         connector: { ...DEFAULTS.styles.connector, ...saved.styles?.connector },
         gestures: { ...DEFAULTS.styles.gestures, ...saved.styles?.gestures },
       },
+      audio: { ...DEFAULTS.audio, ...saved.audio },
     };
   } catch {
     return structuredClone(DEFAULTS);

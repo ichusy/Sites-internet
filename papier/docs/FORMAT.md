@@ -46,9 +46,17 @@ Une page qui utilise un tel modèle en garde une copie autonome dans son
 |---|---|
 | `pdftext` | `{ id: "<assetId>#<page>", assetId, pageIndex, items: [{ s, x, y, w, h, eol? }] }` : texte des PDF positionné dans le repère de la page |
 | `pdfmeta` | `{ assetId, name, numPages, outline, links, version, analyzedAt }` : sommaire et liens (cibles : `pageIndex` + `top`, ou `url`) |
-| `searchindex` | `{ notebookId, updatedAt, pages: [{ pageId, texts, pdf? }] }` : texte tapé de chaque page, pour la recherche dans la bibliothèque |
+| `searchindex` | `{ notebookId, updatedAt, pages: [{ pageId, texts, pdf? }], audio?: [{ recordingId, title, texts }] }` : texte tapé de chaque page et transcriptions, pour la recherche dans la bibliothèque |
 
 Elles peuvent être supprimées sans perte : Papier les reconstruit à la demande.
+
+### Enregistrements en cours (`recdrafts`, `recchunks`)
+
+Pendant un enregistrement, l'audio est écrit chaque seconde : `recdrafts` =
+`{ id, notebookId, mime, createdAt, spans }`, `recchunks` = `{ seq, recordingId, blob }`
+(morceaux à concaténer dans l'ordre de `seq`). À l'arrêt, ou à la réouverture du
+carnet après une interruption, ils deviennent un fichier de `assets` et un
+enregistrement du carnet, puis sont effacés.
 
 ### `assets`
 Fichiers binaires (PDF, images, audio) adressés par leur empreinte SHA-256 :
@@ -78,7 +86,35 @@ pages      Y.Map<string, Y.Map>     une Y.Map par page :
              infinite   boolean (optionnel) : tableau blanc sans bords ; width/height
                         n'y sont qu'indicatifs, le carnet n'a alors qu'une page
              elements   Y.Map<string, Element>
+recordings Y.Map<string, Recording>   enregistrements audio (hors historique d'annulation)
 ```
+
+### Enregistrement audio (`recordings`)
+
+```jsonc
+{
+  "id": "…",
+  "assetId": "<sha256>",              // fichier audio dans assets
+  "mime": "audio/webm;codecs=opus",   // ou audio/mp4 (Safari), audio/mpeg (importé)…
+  "title": "Enregistrement du 4 oct., 14:32",
+  "createdAt": 1759600000000,
+  "duration": 3605.2,                 // secondes
+  "spans": [                          // plages enregistrées (pauses exclues)
+    { "start": 1759600000000, "end": 1759601800000, "offset": 0 },
+    { "start": 1759602000000, "end": 1759603805200, "offset": 1800 }
+  ],
+  "transcript": {                     // optionnel
+    "provider": "whisper-local", "model": "onnx-community/whisper-base",
+    "language": "fr", "createdAt": 1759610000000,
+    "segments": [{ "start": 12.4, "end": 17.9, "text": "La mitochondrie produit l’ATP." }]
+  }
+}
+```
+
+**Synchronisation** : un élément créé à l'instant `t` (ms Unix : `t0` d'un trait,
+`z` pour les autres éléments) correspond, dans l'enregistrement, à la position
+`offset + (t − start) / 1000` secondes de la plage qui contient `t`. Un fichier
+importé n'a pas de plage (`spans: []`) : il n'est pas synchronisé.
 
 ### Élément `stroke`
 
@@ -203,7 +239,7 @@ Fichier zip :
 | `notebooks/<id>.json` | contenu lisible du carnet (voir ci-dessous) |
 | `notebooks/<id>.ydoc` | état Yjs complet (`Y.encodeStateAsUpdate`), pour une restauration sans perte |
 | `assets.json` | `[{ id, mime, size, file }]` |
-| `assets/<sha256>.<ext>` | fichiers utilisés (fonds PDF/images, modèles importés, images et autocollants), à l'identique |
+| `assets/<sha256>.<ext>` | fichiers utilisés (fonds PDF/images, modèles importés, images et autocollants, audio), à l'identique |
 
 `notebooks/<id>.json` :
 
@@ -217,7 +253,8 @@ Fichier zip :
       "background": { "kind": "pdf", "assetId": "…", "pageIndex": 0 },   // optionnel
       "elements": [ { "type": "stroke", …, "points": "<base64>" } ]       // triés par z
     }
-  ]
+  ],
+  "recordings": [ { "id": "…", "assetId": "…", "spans": […], "transcript": {…} } ]   // optionnel
 }
 ```
 
@@ -237,3 +274,5 @@ d'une migration automatique à l'ouverture du carnet.
 - **v2 (étape 4)** : éléments `sticky` et `connector`, page `infinite`. Ajouts
   uniquement, sans changement de `schemaVersion` : les carnets existants se lisent
   tels quels.
+- **v2 (étape 5)** : enregistrements audio (`recordings`, et `recordings` dans le
+  JSON des archives). Ajout uniquement.

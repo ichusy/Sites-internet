@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
-import { SCHEMA_VERSION, addElements, insertPage, listPages, pageElements, roots } from './notebookDoc';
-import type { PageData, PageElement, StrokeElement } from './types';
+import { SCHEMA_VERSION, addElements, insertPage, listPages, listRecordings, pageElements, putRecording, roots } from './notebookDoc';
+import type { PageData, PageElement, RecordingData, StrokeElement } from './types';
 
 /**
  * Représentation JSON lisible d'un carnet (fichier notebooks/<id>.json des archives .papier).
@@ -10,6 +10,8 @@ export interface NotebookJson {
   schemaVersion: number;
   title: string;
   pages: (PageData & { elements: JsonElement[] })[];
+  /** Enregistrements audio (fichiers dans assets/, voir FORMAT.md). */
+  recordings?: RecordingData[];
 }
 
 /** Éléments tels qu'écrits dans le JSON : les points des traits passent en base64. */
@@ -40,6 +42,7 @@ export function docToJson(doc: Y.Doc): NotebookJson {
         .sort((a, b) => a.z - b.z)
         .map((el): JsonElement => (el.type === 'stroke' ? { ...el, points: bytesToBase64(el.points) } : el)),
     })),
+    recordings: listRecordings(doc),
   };
 }
 
@@ -58,6 +61,7 @@ export function jsonToDoc(json: NotebookJson, doc = new Y.Doc()): Y.Doc {
         elements.map((el): PageElement => (el.type === 'stroke' ? { ...el, points: base64ToBytes(el.points) } : el)),
       );
     });
+    for (const rec of json.recordings ?? []) putRecording(doc, rec);
   });
   return doc;
 }

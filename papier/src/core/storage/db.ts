@@ -1,4 +1,5 @@
 import Dexie, { type Table } from 'dexie';
+import type { RecordingSpan } from '../model/types';
 import type {
   AssetRecord, FolderRecord, NotebookIndexRecord, NotebookRecord, PdfMetaRecord, PdfPageTextRecord, TemplateRecord,
 } from '../model/types';
@@ -7,6 +8,21 @@ import type {
  * Base IndexedDB « papier » : index de la bibliothèque et fichiers binaires.
  * Le contenu de chaque carnet vit dans sa propre base Yjs (voir notebookStore.ts).
  */
+/** Enregistrement en cours (ou interrompu) : l'audio est écrit au fil de l'eau pour ne rien perdre. */
+export interface RecordingDraft {
+  id: string;
+  notebookId: string;
+  mime: string;
+  createdAt: number;
+  spans: RecordingSpan[];
+}
+
+export interface RecordingChunk {
+  seq?: number;
+  recordingId: string;
+  blob: Blob;
+}
+
 class PapierDB extends Dexie {
   folders!: Table<FolderRecord, string>;
   notebooks!: Table<NotebookRecord, string>;
@@ -16,6 +32,9 @@ class PapierDB extends Dexie {
   pdftext!: Table<PdfPageTextRecord, string>;
   pdfmeta!: Table<PdfMetaRecord, string>;
   searchindex!: Table<NotebookIndexRecord, string>;
+  /** Enregistrements audio en cours : métadonnées et morceaux, assemblés à l'arrêt. */
+  recdrafts!: Table<RecordingDraft, string>;
+  recchunks!: Table<RecordingChunk, number>;
 
   constructor() {
     super('papier');
@@ -26,6 +45,7 @@ class PapierDB extends Dexie {
     });
     this.version(2).stores({ templates: 'id, createdAt' });
     this.version(3).stores({ pdftext: 'id, assetId', pdfmeta: 'assetId', searchindex: 'notebookId' });
+    this.version(4).stores({ recdrafts: 'id, notebookId', recchunks: '++seq, recordingId' });
   }
 }
 

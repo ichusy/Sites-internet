@@ -309,10 +309,12 @@
           {#if contentStatus}<p class="hint">{contentStatus}</p>{/if}
           {#if contentHits.length}
             <ol>
-              {#each contentHits as h (h.notebookId + h.pageIndex)}
+              {#each contentHits as h (h.notebookId + h.pageIndex + (h.recordingId ?? ''))}
                 <li>
-                  <a href={links.notebook(h.notebookId, { q: search.trim(), page: h.pageIndex })}>
-                    <span class="where">{h.title} · page {h.pageIndex + 1}{h.source === 'pdf' ? ' · PDF' : ''}</span>
+                  <a href={links.notebook(h.notebookId, { q: search.trim(), page: h.source === 'audio' ? undefined : h.pageIndex })}>
+                    <span class="where">
+                      {#if h.source === 'audio'}{h.title} · audio « {h.recordingTitle} »{:else}{h.title} · page {h.pageIndex + 1}{h.source === 'pdf' ? ' · PDF' : ''}{/if}
+                    </span>
                     <span class="snippet">{h.snippet.before}<mark>{h.snippet.match}</mark>{h.snippet.after}</span>
                   </a>
                 </li>
@@ -321,7 +323,7 @@
           {:else if searching}
             <p class="hint">Recherche…</p>
           {:else}
-            <p class="hint">Aucun résultat dans le texte tapé ni dans les PDF.</p>
+            <p class="hint">Aucun résultat dans le texte tapé, les PDF ni les transcriptions.</p>
           {/if}
         </section>
       {:else if !shownNotebooks.length && !shownFolders.length}

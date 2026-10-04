@@ -22,6 +22,8 @@ import { LassoTool } from './tools/LassoTool';
 import { TextTool } from './tools/TextTool';
 import { StickyTool } from './tools/StickyTool';
 import { ConnectorTool } from './tools/ConnectorTool';
+import { ListenTool } from './tools/ListenTool';
+import { elementTime } from '../core/audio/timeline';
 import type { Selection, TextEditRequest, Tool, ToolContext, ToolName, ToolStyles } from './tools/types';
 import { canvasMeasure, layoutText, textBlockHeight } from './render/text';
 import { parseQuery } from '../core/search/match';
@@ -94,6 +96,10 @@ export class Editor {
   private searchTimer: ReturnType<typeof setTimeout> | undefined;
   private searchListeners = new Set<(hits: PageHits[], active: number) => void>();
   private linkListeners = new Set<(url: string) => void>();
+  private listenListeners = new Set<(el: PageElement) => void>();
+  /** Relecture : instant (ms Unix) jusqu'auquel l'écriture est affichée, et nombre d'éléments visibles. */
+  private replayAt: number | null = null;
+  private replayShown = -1;
 
   tool: ToolName = 'pen';
   fingerDrawing: FingerDrawing = 'auto';
@@ -137,6 +143,9 @@ export class Editor {
       },
       editText: (req) => this.startTextEdit(req),
       followLink: (x, y) => this.followLink(x, y),
+      listen: (el) => {
+        for (const fn of this.listenListeners) fn(el);
+      },
     };
     this.lasso = new LassoTool(ctx);
     this.tools = {
@@ -148,6 +157,7 @@ export class Editor {
       text: new TextTool(ctx),
       sticky: new StickyTool(ctx),
       connector: new ConnectorTool(ctx),
+      listen: new ListenTool(ctx),
     };
     this.renderer.overlay = (c) => {
       this.drawSearchOverlay(c);
@@ -197,6 +207,7 @@ export class Editor {
     this.selectionListeners.clear();
     this.searchListeners.clear();
     this.linkListeners.clear();
+    this.listenListeners.clear();
     clearTimeout(this.searchTimer);
     this.textListeners.clear();
     this.toolListeners.clear();
@@ -571,6 +582,86 @@ export class Editor {
   setTitle(title: string) {
     const { meta } = roots(this.nb.doc);
     if (meta.get('title') !== title) meta.set('title', title);
+  }
+
+  // ── Audio : écoute et relecture de l'écriture ──────────
+
+  /** Élément touché avec l'outil d'écoute. */
+  onListen(fn: (el: PageElement) => void): () => void {
+    this.listenListeners.add(fn);
+    return () => this.listenListeners.delete(fn);
+  }
+
+  /** Éléments sélectionnés (pour « écouter depuis la sélection »). */
+  selectedElements(): PageElement[] {
+    const sel = this.sel;
+    const scene = sel && this.scenes.get(sel.pageId);
+    return sel && scene ? sel.ids.map((id) => scene.items.get(id)?.el).filter((e): e is PageElement => !!e) : [];
+  }
+
+  /**
+   * Relecture synchronisée : seuls les éléments écrits avant `t` (ms Unix) sont affichés
+   * normalement, les suivants sont estompés. `null` rétablit l'affichage normal.
+   */
+  setReplay(t: number | null) {
+    if (t === null) {
+      if (this.replayAt === null) return;
+      this.replayAt = null;
+      this.replayShown = -1;
+      this.renderer.ghost = null;
+      for (const scene of this.scenes.values()) scene.markFull();
+      this.renderer.invalidate();
+      return;
+    }
+    this.replayAt = t;
+    // On ne redessine que si l'ensemble des éléments affichés a changé.
+    let shown = 0;
+    for (const scene of this.scenes.values()) {
+      for (const item of scene.items.values()) {
+        const et = elementTime(item.el);
+        if (et === null || et <= t) shown++;
+      }
+    }
+    if (shown === this.replayShown && this.renderer.ghost) return;
+    this.replayShown = shown;
+    this.renderer.ghost = (item) => {
+      const et = elementTime(item.el);
+      return et !== null && this.replayAt !== null && et > this.replayAt;
+    };
+    this.renderer.invalidate();
+  }
+
+  /** Fait apparaître un élément à l'écran (centré s'il est hors de la vue). */
+  revealElement(el: PageElement) {
+    for (const l of this.layout.pages) {
+      if (!this.scenes.get(l.id)?.items.has(el.id)) continue;
+      const b = el.bbox;
+      const [vx0, vy0, vx1, vy1] = this.viewport.visibleWorld();
+      const x0 = l.x + b[0], y0 = l.y + b[1], x1 = l.x + b[2], y1 = l.y + b[3];
+      if (x0 >= vx0 && x1 <= vx1 && y0 >= vy0 && y1 <= vy1) return;
+      if (l.infinite) this.centerOn((x0 + x1) / 2, (y0 + y1) / 2);
+      else {
+        this.viewport.panY = this.viewport.height / 3 - ((y0 + y1) / 2) * this.viewport.zoom;
+        this.onViewportChanged();
+      }
+      return;
+    }
+  }
+
+  /** Dernier élément écrit avant l'instant `t` (ms Unix), pour suivre la lecture. */
+  latestElementBefore(t: number, since: number): PageElement | null {
+    let best: PageElement | null = null;
+    let bestT = since;
+    for (const scene of this.scenes.values()) {
+      for (const item of scene.items.values()) {
+        const et = elementTime(item.el);
+        if (et !== null && et <= t && et >= bestT) {
+          best = item.el;
+          bestT = et;
+        }
+      }
+    }
+    return best;
   }
 
   // ── PDF : liens, sommaire, recherche ────────────────────

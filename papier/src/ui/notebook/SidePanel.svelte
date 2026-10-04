@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  export type PanelTab = 'pages' | 'outline' | 'search';
+  export type PanelTab = 'pages' | 'outline' | 'search' | 'audio';
 </script>
 
 <script lang="ts">
@@ -11,6 +11,7 @@
     { id: 'pages', label: 'Pages' },
     { id: 'outline', label: 'Sommaire' },
     { id: 'search', label: 'Recherche' },
+    { id: 'audio', label: 'Audio' },
   ];
   const TABS = $derived(tabs ? ALL.filter((t) => tabs.includes(t.id)) : ALL);
 </script>
@@ -26,7 +27,7 @@
 
 <style>
   .side {
-    width: 212px;
+    width: 240px;
     flex: none;
     display: flex;
     flex-direction: column;
@@ -35,7 +36,7 @@
     border-left: 1px solid var(--border);
   }
   .side.wide {
-    width: 290px;
+    width: 300px;
   }
   .tabs {
     display: flex;
@@ -45,9 +46,12 @@
     flex: none;
   }
   .tabs button {
-    flex: 1;
-    padding: 7px 4px 8px;
-    font-size: 12.5px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 7px 2px 8px;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
     color: var(--muted);
     border-bottom: 2px solid transparent;
     white-space: nowrap;

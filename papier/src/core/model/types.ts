@@ -146,6 +146,51 @@ export interface PageData {
   infinite?: boolean;
 }
 
+// ── Audio ────────────────────────────────────────────────
+
+/**
+ * Plage d'enregistrement continue (sans pause) : de `start` à `end` (ms, horloge Unix),
+ * qui commence à `offset` secondes dans le fichier audio.
+ */
+export interface RecordingSpan {
+  start: number;
+  end: number;
+  offset: number;
+}
+
+/** Phrase transcrite : début et fin en secondes dans le fichier audio. */
+export interface TranscriptSegment {
+  start: number;
+  end: number;
+  text: string;
+}
+
+export interface Transcript {
+  /** Moteur utilisé (ex. « whisper-local ») et modèle. */
+  provider: string;
+  model?: string;
+  /** Code de langue (« fr », « en »…) ou « auto ». */
+  language: string;
+  createdAt: number;
+  segments: TranscriptSegment[];
+}
+
+/** Enregistrement audio d'un carnet, synchronisé avec l'écriture par ses plages horaires. */
+export interface RecordingData {
+  id: ID;
+  /** Fichier audio (table `assets`). */
+  assetId: ID;
+  mime: string;
+  title: string;
+  /** Début de l'enregistrement (ms, horloge Unix). */
+  createdAt: number;
+  /** Durée en secondes. */
+  duration: number;
+  /** Plages horaires enregistrées ; vide pour un fichier importé (pas de synchronisation). */
+  spans: RecordingSpan[];
+  transcript?: Transcript;
+}
+
 // ── Bibliothèque ─────────────────────────────────────────
 
 export type CoverPattern = 'plain' | 'stripes' | 'dots' | 'grid' | 'diagonal';
@@ -261,4 +306,6 @@ export interface NotebookIndexRecord {
   notebookId: ID;
   updatedAt: number;
   pages: { pageId: ID; texts: string[]; pdf?: { assetId: ID; pageIndex: number } }[];
+  /** Transcriptions des enregistrements (une chaîne par phrase). */
+  audio?: { recordingId: ID; title: string; texts: string[] }[];
 }
