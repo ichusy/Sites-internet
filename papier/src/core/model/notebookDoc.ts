@@ -19,6 +19,21 @@ export const SCHEMA_VERSION = 2;
 /** Origine des transactions locales : seules celles-ci sont annulables par l'utilisateur. */
 export const LOCAL_ORIGIN = { name: 'local' };
 
+/** Origine des modifications reçues du serveur (synchronisation HTTP). */
+export const REMOTE_ORIGIN = { name: 'remote' };
+
+/** Origines « distantes » (fournisseurs WebSocket enregistrés par la synchronisation). */
+const remoteOrigins = new WeakSet<object>([REMOTE_ORIGIN]);
+
+export function registerRemoteOrigin(origin: object) {
+  remoteOrigins.add(origin);
+}
+
+/** La modification vient-elle d'un autre appareil ? */
+export function isRemoteOrigin(origin: unknown): boolean {
+  return typeof origin === 'object' && origin !== null && remoteOrigins.has(origin);
+}
+
 export type PageMap = Y.Map<unknown>;
 export type ElementsMap = Y.Map<PageElement>;
 

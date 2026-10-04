@@ -1,7 +1,10 @@
 <script lang="ts">
+  import SyncDialog from '../sync/SyncDialog.svelte';
+  import SyncStatus from '../sync/SyncStatus.svelte';
+  import { syncState } from '../../sync/sync.svelte';
   import {
     Archive, ArchiveRestore, BookPlus, ChevronRight, Clock, Folder, FolderInput, FolderPlus, Library as LibraryIcon,
-    Menu as MenuIcon, Pencil, Search, Settings, Star, Trash2, Upload,
+    Cloud, Menu as MenuIcon, Pencil, Search, Settings, Star, Trash2, Upload,
   } from '@lucide/svelte';
   import { backupLibrary, importIntoLibrary, pickAndImport } from '../actions';
   import { searchLibrary, type LibraryHit } from '../../core/search/librarySearch';
@@ -167,7 +170,11 @@
     if (files.length) void importFiles(files);
   }
 
+  let syncOpen = $state(false);
+
   const settingsItems = (): MenuItem[] => [
+    { header: 'Synchronisation' },
+    { label: syncState.account ? `Compte : ${syncState.account.user.name}…` : 'Se connecter à un serveur…', icon: Cloud, action: () => (syncOpen = true) },
     { header: 'Données' },
     { label: 'Sauvegarder la bibliothèque', icon: Archive, action: backupLibrary },
     { label: 'Restaurer une sauvegarde…', icon: ArchiveRestore, action: async () => importFiles(await pickFiles('.papier,application/zip', true)) },
@@ -210,6 +217,9 @@
     </div>
     <div class="sidebar-footer">
       <Menu items={settingsItems} icon={Settings} label="Réglages" />
+      {#if syncState.account || syncState.status !== 'off'}
+        <SyncStatus onclick={() => (syncOpen = true)} />
+      {/if}
     </div>
   </aside>
   <button type="button" class="scrim" aria-label="Fermer le menu" onclick={closeSidebar}></button>
@@ -346,6 +356,10 @@
   </main>
 </div>
 
+{#if syncOpen}
+  <SyncDialog onclose={() => (syncOpen = false)} />
+{/if}
+
 <style>
   .library {
     display: flex;
@@ -422,6 +436,8 @@
   }
   .sidebar-footer {
     display: flex;
+    align-items: center;
+    gap: 4px;
     padding-top: 8px;
   }
   .scrim {

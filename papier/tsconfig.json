@@ -17,5 +17,6 @@
     "allowJs": false,
     "checkJs": false
   },
-  "include": ["src/**/*.ts", "src/**/*.svelte", "tests/**/*.ts", "vite.config.ts"]
+  "include": ["src/**/*.ts", "src/**/*.svelte", "tests/**/*.ts", "vite.config.ts"],
+  "exclude": ["tests/server.test.ts"]
 }

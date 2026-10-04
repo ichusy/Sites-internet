@@ -6,6 +6,7 @@
   import { askConfirm, askFolder, askNotebook } from '../common/dialogs.svelte';
   import Menu, { type MenuItem } from '../common/Menu.svelte';
   import { links } from '../router.svelte';
+  import { syncState } from '../../sync/sync.svelte';
   import Cover from './Cover.svelte';
 
   let { nb }: { nb: NotebookRecord } = $props();
@@ -23,7 +24,14 @@
   }
 
   async function remove() {
-    const ok = await askConfirm('Supprimer le carnet ?', `« ${nb.title} » et toutes ses pages seront définitivement supprimés.`, 'Supprimer', true);
+    const ok = nb.share
+      ? await askConfirm('Retirer le carnet partagé ?', `« ${nb.title} » sera retiré de cet appareil. Il reste disponible chez ${nb.share.owner || 'son propriétaire'} et par son lien.`, 'Retirer', true)
+      : await askConfirm(
+          'Supprimer le carnet ?',
+          `« ${nb.title} » et toutes ses pages seront supprimés${syncState.account ? ' sur tous vos appareils (une version reste dans l’historique du serveur)' : ' définitivement'}.`,
+          'Supprimer',
+          true,
+        );
     if (ok) await deleteNotebook(nb.id);
   }
 
@@ -37,7 +45,7 @@
     { label: 'Exporter en PDF sans annotations', icon: FileDown, action: () => exportNotebookPdf(nb.id, false) },
     { label: 'Sauvegarder (.papier)', icon: Archive, action: () => exportNotebookArchive(nb) },
     { separator: true },
-    { label: 'Supprimer', icon: Trash2, danger: true, action: remove },
+    { label: nb.share ? 'Retirer de cet appareil' : 'Supprimer', icon: Trash2, danger: true, action: remove },
   ];
 </script>
 
@@ -49,6 +57,9 @@
     <div class="text">
       <a href={links.notebook(nb.id)} class="title">{nb.title}</a>
       <div class="sub">{nb.kind === 'canvas' ? 'Tableau blanc' : `${nb.pageCount} page${nb.pageCount > 1 ? 's' : ''}`} · {date}</div>
+      {#if nb.share}
+        <div class="shared">Partagé par {nb.share.owner || 'quelqu’un'}{nb.share.mode === 'view' ? ' · lecture seule' : ''}</div>
+      {/if}
     </div>
     <button
       type="button"
@@ -65,6 +76,11 @@
 </article>
 
 <style>
+  .shared {
+    font-size: 12px;
+    color: var(--accent);
+    margin-top: 1px;
+  }
   .card {
     display: flex;
     flex-direction: column;

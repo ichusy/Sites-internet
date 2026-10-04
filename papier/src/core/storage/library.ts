@@ -94,8 +94,9 @@ export async function duplicateNotebook(id: ID): Promise<NotebookRecord | null> 
   const src = await db.notebooks.get(id);
   if (!src) return null;
   const now = Date.now();
+  const { share: _share, ...base } = src;
   const record: NotebookRecord = {
-    ...src,
+    ...base,
     id: newId(),
     title: `${src.title} (copie)`,
     favorite: false,
@@ -104,6 +105,16 @@ export async function duplicateNotebook(id: ID): Promise<NotebookRecord | null> 
     openedAt: 0,
   };
   record.pageCount = await createNotebookDoc(record, { from: src.id });
+  await db.notebooks.add(record);
+  return record;
+}
+
+/** Nouveau carnet à partir d'un état Yjs complet (version restaurée de l'historique). */
+export async function createNotebookFromState(src: NotebookRecord, update: Uint8Array, title: string): Promise<NotebookRecord> {
+  const now = Date.now();
+  const { share: _share, ...base } = src;
+  const record: NotebookRecord = { ...base, id: newId(), title, favorite: false, createdAt: now, updatedAt: now, openedAt: 0 };
+  record.pageCount = await createNotebookDoc(record, { update });
   await db.notebooks.add(record);
   return record;
 }

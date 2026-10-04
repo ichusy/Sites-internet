@@ -4,6 +4,7 @@ import './app.css';
 import { requestPersistentStorage } from './core/storage/db';
 import App from './ui/App.svelte';
 import { initTheme } from './ui/theme.svelte';
+import { syncEngine } from './sync/sync.svelte';
 
 initTheme();
 
@@ -13,3 +14,6 @@ mount(App, { target: document.getElementById('app')! });
 registerSW({ immediate: true });
 
 void requestPersistentStorage();
+
+// Synchronisation facultative (compte sur un serveur Papier, carnets reçus par lien).
+void syncEngine.start();

@@ -38,10 +38,12 @@
     /** Le micro est-il utilisable dans ce navigateur ? */
     canRecord: boolean;
     onrecord: () => void;
+    /** Carnet partagé en lecture seule : pas d'outils d'écriture. */
+    readOnly?: boolean;
   }
   let {
     title, tool = $bindable(), es, panel = $bindable(), onrename, onundo, onredo, onaddpage, onfit, canPaste, onpaste, docItems,
-    oninsertimage, onsticker, infinite, recording, canRecord, onrecord,
+    oninsertimage, onsticker, infinite, recording, canRecord, onrecord, readOnly = false,
   }: Props = $props();
 
   const styles = settings.styles;
@@ -139,6 +141,11 @@
     <button type="button" class="title" title="Renommer" onclick={onrename}>{title}</button>
   </div>
 
+  {#if readOnly}
+  <div class="group tools">
+    <span class="hint">Lecture seule : touchez l’écriture pour écouter l’audio enregistré à ce moment</span>
+  </div>
+  {:else}
   <div class="group tools" role="toolbar" aria-label="Outils">
     {#each TOOLS as t (t.id)}
       <button type="button" class="icon-btn" class:active={tool === t.id} aria-pressed={tool === t.id} title="{t.label} ({t.key})" aria-label={t.label} onclick={() => (tool = t.id)}>
@@ -301,11 +308,14 @@
       </Popover>
     {/if}
   </div>
+  {/if}
 
   <div class="group right">
+    {#if !readOnly}
     <button type="button" class="icon-btn" disabled={!es.canUndo} title="Annuler (Ctrl+Z, tap à 2 doigts)" aria-label="Annuler" onclick={onundo}><Undo2 size={19} /></button>
     <button type="button" class="icon-btn" disabled={!es.canRedo} title="Rétablir (Ctrl+Maj+Z, tap à 3 doigts)" aria-label="Rétablir" onclick={onredo}><Redo2 size={19} /></button>
     <span class="sep"></span>
+    {/if}
     {#if canRecord}
       <button type="button" class="icon-btn" class:rec={recording} title={recording ? 'Enregistrement en cours' : 'Enregistrer l’audio (R)'} aria-label={recording ? 'Enregistrement en cours' : 'Enregistrer l’audio'} disabled={recording} onclick={onrecord}>
         <Mic size={19} />
@@ -314,7 +324,9 @@
     <button type="button" class="zoom" title={infinite ? 'Tout voir (0)' : 'Ajuster à la largeur (0)'} onclick={onfit}>{Math.round(es.zoom * 100)} %</button>
     {#if !infinite}
       <span class="page-indicator" title="Page courante">{es.currentPage + 1}/{es.pageCount}</span>
-      <button type="button" class="icon-btn" title="Ajouter une page" aria-label="Ajouter une page" onclick={onaddpage}><FilePlus size={19} /></button>
+      {#if !readOnly}
+        <button type="button" class="icon-btn" title="Ajouter une page" aria-label="Ajouter une page" onclick={onaddpage}><FilePlus size={19} /></button>
+      {/if}
     {/if}
     <button type="button" class="icon-btn" class:active={panel === 'search'} aria-pressed={panel === 'search'} title="Rechercher (Ctrl+F)" aria-label="Rechercher" onclick={() => (panel = panel === 'search' ? null : 'search')}>
       <Search size={19} />

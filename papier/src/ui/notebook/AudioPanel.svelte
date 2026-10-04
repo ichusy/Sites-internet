@@ -19,8 +19,10 @@
     /** Outil « toucher l'écriture pour écouter » actif. */
     listening: boolean;
     onlisten: (on: boolean) => void;
+    /** Carnet partagé en lecture seule : écoute seulement. */
+    readOnly?: boolean;
   }
-  let { audio, listening, onlisten }: Props = $props();
+  let { audio, listening, onlisten, readOnly = false }: Props = $props();
 
   const RATES = [0.75, 1, 1.25, 1.5, 2];
   const PHASES = { decode: 'Préparation de l’audio…', download: 'Téléchargement du modèle (une seule fois)…', load: 'Chargement du modèle…', transcribe: 'Transcription…' };
@@ -77,22 +79,21 @@
   }
 
   const itemsFor = (r: RecordingData) => (): MenuItem[] => [
-    { label: 'Renommer…', icon: Pencil, action: () => void rename(r) },
+    ...(readOnly ? [] : [{ label: 'Renommer…', icon: Pencil, action: () => void rename(r) }]),
     { label: 'Télécharger l’audio', icon: Download, action: () => void audio.download(r) },
     ...(r.transcript?.segments.length
       ? [
           { label: 'Exporter la transcription (.txt)', icon: FileText, action: () => void audio.exportTranscript(r, 'txt') },
           { label: 'Exporter les sous-titres (.vtt)', icon: Captions, action: () => void audio.exportTranscript(r, 'vtt') },
-          { label: 'Transcrire de nouveau', icon: Languages, disabled: !!audio.job, action: () => void audio.transcribe(r) },
+          ...(readOnly ? [] : [{ label: 'Transcrire de nouveau', icon: Languages, disabled: !!audio.job, action: () => void audio.transcribe(r) }]),
         ]
       : []),
-    { separator: true },
-    { label: 'Supprimer', icon: Trash2, danger: true, action: () => void remove(r) },
+    ...(readOnly ? [] : [{ separator: true } as MenuItem, { label: 'Supprimer', icon: Trash2, danger: true, action: () => void remove(r) }]),
   ];
 </script>
 
 <div class="audio">
-  <div class="actions">
+  <div class="actions" class:hidden={readOnly}>
     {#if audio.supported}
       <button type="button" class="btn primary" disabled={audio.recState !== 'idle'} onclick={() => void audio.startRecording()}>
         <Mic size={16} /> {audio.recState === 'idle' ? 'Enregistrer' : 'Enregistrement…'}
@@ -152,7 +153,7 @@
       {#if audio.synced}
         <label class="check"><input type="checkbox" checked={settings.audio.replay} onchange={(e) => audio.setReplay(e.currentTarget.checked)} /> Rejouer l’écriture au rythme de l’audio</label>
         <label class="check"><input type="checkbox" bind:checked={settings.audio.follow} disabled={!settings.audio.replay} /> Suivre l’écriture pendant la lecture</label>
-        <button type="button" class="btn listen" class:on={listening} aria-pressed={listening} onclick={() => onlisten(!listening)}>
+        <button type="button" class="btn listen" class:on={listening} class:hidden={readOnly} aria-pressed={listening} onclick={() => onlisten(!listening)}>
           <Ear size={16} /> {listening ? 'Touchez l’écriture pour l’écouter' : 'Toucher l’écriture pour écouter'}
         </button>
       {:else}
@@ -172,7 +173,7 @@
         {#if cur.transcript}
           <p class="hint">Aucune parole n’a été détectée.</p>
         {/if}
-        <button type="button" class="btn primary" disabled={!!audio.job} onclick={() => void audio.transcribe(cur)}>
+        <button type="button" class="btn primary" disabled={!!audio.job || readOnly} onclick={() => void audio.transcribe(cur)}>
           <Languages size={16} /> Transcrire
         </button>
         <p class="hint small">
@@ -232,6 +233,9 @@
     overflow: auto;
     flex: 1;
     min-height: 0;
+  }
+  .hidden {
+    display: none !important;
   }
   .actions {
     display: flex;

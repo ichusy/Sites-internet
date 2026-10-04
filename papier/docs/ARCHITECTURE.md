@@ -16,6 +16,8 @@
 | Archives `.papier` | fflate (zip) |
 | Audio | MediaRecorder (Opus / AAC), Web Audio (décodage, vumètre) |
 | Transcription | transformers.js + ONNX Runtime Web (Whisper, dans un worker ; wasm servi par l'app) |
+| Synchronisation (client) | y-websocket (temps réel), synchronisation HTTP maison (arrière-plan) |
+| Serveur | Node.js ≥ 22.18 sans compilation (TypeScript natif), `node:sqlite`, `ws`, Yjs ; Docker + Caddy |
 
 Pourquoi Yjs dès le départ : le même modèle fournit l'annulation illimitée
 (`Y.UndoManager`, limitée aux modifications locales), la persistance
@@ -50,7 +52,9 @@ src/
 ├─ pdf/                    pdf.js (chargement), import PDF/images, export PDF,
 │                          analyse (texte positionné, sommaire, liens)
 ├─ io/                     archives .papier, sélection et enregistrement de fichiers
-└─ ui/                     composants Svelte (bibliothèque, carnet, dialogues, actions)
+├─ sync/                   compte, pont bibliothèque ↔ Yjs, synchro des carnets et fichiers
+└─ ui/                     composants Svelte (bibliothèque, carnet, dialogues, actions, sync/)
+server/                    serveur de synchronisation (voir « Étape 10 »)
 ```
 
 ## Moteur d'encre
@@ -186,6 +190,57 @@ src/
 - **Recherche** : transcriptions dans `searchindex.audio` (bibliothèque) et
   recherche directe dans le carnet (`core/search/audioSearch.ts`).
 
+## Étape 10 : synchronisation, partage, collaboration
+
+**Serveur** (`server/`, un seul processus Node, aucune dépendance native) :
+
+| Fichier | Rôle |
+|---|---|
+| `db.ts` | SQLite (`node:sqlite`) : comptes, sessions, documents, mises à jour, versions, liens, fichiers |
+| `access.ts` | droits sur un « salon » : `lib` (bibliothèque du compte) ou `nb-<id>` (carnet) |
+| `docs.ts` | Y.Doc en mémoire tant qu'ils servent ; chaque mise à jour écrite aussitôt, compactage, versions horaires |
+| `wsSync.ts` | protocole y-websocket (synchro + awareness), lecture seule appliquée côté serveur |
+| `http.ts` | API (comptes, synchro HTTP, versions, partage, fichiers) et service de l'application |
+| `snapshots.ts` | politique de conservation des versions (testée) |
+
+- **Propriété** : le premier compte qui synchronise un carnet en est propriétaire ;
+  les autres n'y accèdent que par un lien (`shares`, jeton de 256 bits révocable).
+  Un lien « lecture » reçoit le document et la présence, mais le serveur ignore ses
+  mises à jour (pas seulement l'interface).
+- **Fichiers** : adressés par SHA-256, vérifiés à l'envoi ; lisibles par un compte
+  connecté ou un lien valide (l'empreinte, impossible à deviner, vaut capacité).
+- **Sessions** : jeton aléatoire stocké haché ; mots de passe en scrypt ; limite de
+  tentatives par IP. Authentification par en-tête (jamais de cookie) : l'API accepte
+  toutes les origines (CORS) sans risque de CSRF.
+
+**Client** (`src/sync/`) :
+
+- **Bibliothèque** : un Y.Doc par compte (`folders`, `notebooks`, `templates`), en
+  temps réel par WebSocket et persisté localement (y-indexeddb). `libraryBridge.ts`
+  le relie aux tables Dexie par des *hooks* : toute écriture locale (quel que soit
+  l'endroit du code) part vers le Y.Doc, toute modification distante est recopiée
+  dans Dexie (l'interface, qui lit Dexie, se met à jour seule). Les valeurs sont
+  comparées avant chaque recopie : pas d'aller-retour. `openedAt` et les carnets
+  reçus par lien restent propres à l'appareil.
+- **Carnets fermés** : synchronisés en arrière-plan par HTTP (`docSync.ts` : vecteur
+  d'état du serveur, puis envoi de ce qui lui manque et réception du reste), quand
+  ils ont changé ici ou ailleurs (table `syncstate`), au retour du réseau et toutes
+  les minutes. **Carnet ouvert** : WebSocket, avec présence (awareness : nom,
+  couleur, curseur, trait en cours allégé à 200 points, ~20 envois/s au plus).
+- **Pas de page fantôme** : un carnet synchronisé jamais téléchargé n'est pas
+  initialisé localement (sinon sa page vide s'ajouterait à celles du serveur) ;
+  on tente d'abord de le récupérer, sinon un message invite à se reconnecter.
+- **Origines** : les modifications reçues (HTTP ou WebSocket) sont marquées
+  distantes : elles ne touchent ni l'historique d'annulation ni la date de
+  modification du carnet sur cet appareil.
+- **Fichiers** : envoyés si le serveur ne les a pas, téléchargés s'ils manquent ;
+  `getAsset` les récupère aussi à la demande (affichage, export).
+
+**Vérifié** : tests du serveur (`tests/server.test.ts` : comptes, convergence de
+deux appareils, droits, temps réel, lecture seule, liens, versions, redémarrage,
+fichiers) et scénario navigateur à quatre appareils (compte sur deux appareils,
+fusion après coupure réseau, lecteur et invité par lien, révocation, historique).
+
 ## Export PDF
 
 - Page issue d'un PDF : la page d'origine est **recopiée** (pdf-lib `copyPages`),
@@ -212,8 +267,8 @@ src/
 | 3 | PDF : sommaire, liens ; recherche plein texte | ✅ |
 | 4 | Canevas infini, post-its, connecteurs | ✅ |
 | 5 | Audio synchronisé, transcription | ✅ |
-| 6 | Reconnaissance d'écriture, recherche manuscrite | |
-| 7 | Flashcards (SM-2) | |
-| 8 | Couche IA optionnelle | |
-| 9 | Présentation, pointeur laser | |
-| 10 | Synchro, partage, collaboration temps réel | |
+| 6 | Reconnaissance d'écriture, recherche manuscrite | non retenue |
+| 7 | Flashcards (SM-2) | non retenue |
+| 8 | Couche IA optionnelle | non retenue (l'abstraction `Transcriber` reste prête) |
+| 9 | Présentation, pointeur laser | non retenue |
+| 10 | Synchro, partage, collaboration temps réel | ✅ |

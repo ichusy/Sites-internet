@@ -23,6 +23,17 @@ export interface RecordingChunk {
   blob: Blob;
 }
 
+/** État de synchronisation d'un carnet avec le serveur (propre à l'appareil). */
+export interface SyncStateRecord {
+  id: string;
+  /** Dernière modification (locale ou annoncée par le serveur) à envoyer ou recevoir. */
+  dirtyAt: number;
+  /** Début de la dernière synchronisation réussie. */
+  syncedAt: number;
+  /** Dernière erreur (accès retiré, carnet supprimé du serveur…). */
+  error?: string;
+}
+
 class PapierDB extends Dexie {
   folders!: Table<FolderRecord, string>;
   notebooks!: Table<NotebookRecord, string>;
@@ -35,6 +46,7 @@ class PapierDB extends Dexie {
   /** Enregistrements audio en cours : métadonnées et morceaux, assemblés à l'arrêt. */
   recdrafts!: Table<RecordingDraft, string>;
   recchunks!: Table<RecordingChunk, number>;
+  syncstate!: Table<SyncStateRecord, string>;
 
   constructor() {
     super('papier');
@@ -46,6 +58,7 @@ class PapierDB extends Dexie {
     this.version(2).stores({ templates: 'id, createdAt' });
     this.version(3).stores({ pdftext: 'id, assetId', pdfmeta: 'assetId', searchindex: 'notebookId' });
     this.version(4).stores({ recdrafts: 'id, notebookId', recchunks: '++seq, recordingId' });
+    this.version(5).stores({ syncstate: 'id' });
   }
 }
 

@@ -8,8 +8,12 @@
     children: Snippet;
     actions: Snippet;
     wide?: boolean;
+    /** Libellé du bouton de fermeture (« Annuler » par défaut). */
+    cancelLabel?: string;
+    /** Validation (touche Entrée) : renvoyer false garde la boîte ouverte. */
+    onsubmit?: () => boolean | void;
   }
-  let { title, onclose, children, actions, wide = false }: Props = $props();
+  let { title, onclose, children, actions, wide = false, cancelLabel = 'Annuler', onsubmit }: Props = $props();
 
   let el: HTMLDialogElement;
   let submitted = false;
@@ -18,6 +22,7 @@
 
   function submit(e: SubmitEvent) {
     e.preventDefault();
+    if (onsubmit && onsubmit() === false) return;
     submitted = true;
     el.close();
   }
@@ -33,7 +38,7 @@
     <h2>{title}</h2>
     <div class="body">{@render children()}</div>
     <div class="actions">
-      <button type="button" class="btn" onclick={() => el.close()}>Annuler</button>
+      <button type="button" class="btn" onclick={() => el.close()}>{cancelLabel}</button>
       {@render actions()}
     </div>
   </form>

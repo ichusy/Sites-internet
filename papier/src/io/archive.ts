@@ -5,6 +5,7 @@ import { docToJson, jsonToDoc, type NotebookJson } from '../core/model/serialize
 import { listPages, listRecordings, pageElements, roots } from '../core/model/notebookDoc';
 import type { AssetRecord, FolderRecord, ID, NotebookRecord, TemplateRecord } from '../core/model/types';
 import { db } from '../core/storage/db';
+import { getAsset } from '../core/storage/assets';
 import { createNotebookDoc, loadNotebookDoc } from '../core/storage/notebookStore';
 
 /**
@@ -43,7 +44,7 @@ export function extensionOf(mime: string): string {
 }
 
 /** Fichiers utilisés par un carnet : fonds de page, modèles importés, images, autocollants, audio. */
-function assetIdsOf(doc: Y.Doc): Set<ID> {
+export function assetIdsOf(doc: Y.Doc): Set<ID> {
   const ids = new Set<ID>();
   for (const p of listPages(doc)) {
     if (p.background) ids.add(p.background.assetId);
@@ -75,7 +76,8 @@ export async function exportArchive(notebookIds: ID[], includeFolders: boolean):
 
   const assetIndex: { id: ID; mime: string; size: number; file: string }[] = [];
   for (const id of assetIds) {
-    const rec = await db.assets.get(id);
+    // Fichier pas encore téléchargé sur cet appareil : récupéré depuis le serveur de synchronisation.
+    const rec = await getAsset(id);
     if (!rec) continue;
     const file = `assets/${id}.${extensionOf(rec.mime)}`;
     // Fichiers déjà compressés : stockés sans recompression.

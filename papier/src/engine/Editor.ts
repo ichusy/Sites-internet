@@ -37,6 +37,15 @@ export interface PdfDataProvider {
 }
 import { Viewport } from './Viewport';
 
+/** Autre personne connectée au carnet (synchronisation) : curseur et trait en cours. */
+export interface Peer {
+  id: number;
+  name: string;
+  color: string;
+  cursor?: { pageId: ID; x: number; y: number } | null;
+  ink?: { pageId: ID; color: string; width: number; pts: number[] } | null;
+}
+
 /** Sélection telle que l'interface l'affiche (rectangle en pixels CSS dans la zone de dessin). */
 export interface SelectionInfo {
   count: number;
@@ -103,6 +112,9 @@ export class Editor {
 
   tool: ToolName = 'pen';
   fingerDrawing: FingerDrawing = 'auto';
+  /** Carnet partagé en lecture seule : aucune modification n'est écrite. */
+  readOnly = false;
+  private peers: Peer[] = [];
 
   constructor(
     private container: HTMLElement,
@@ -130,7 +142,9 @@ export class Editor {
       layouts: () => this.layout.pages,
       scene: (id) => this.scenes.get(id),
       beginAction: () => this.nb.undo.stopCapturing(),
-      transact: (fn) => this.nb.doc.transact(() => fn(this.nb.doc), LOCAL_ORIGIN),
+      transact: (fn) => {
+        if (!this.readOnly) this.nb.doc.transact(() => fn(this.nb.doc), LOCAL_ORIGIN);
+      },
       selection: () => this.sel,
       setSelection: (sel) => this.setSelection(sel),
       transformSelection: (m, s) => this.transformSelection(m, s),
@@ -164,6 +178,7 @@ export class Editor {
       if (this.tool === 'lasso') this.drawLinkOverlay(c);
       if (this.tool === 'connector') (this.tools.connector as ConnectorTool).drawOverlay(c);
       this.lasso.drawOverlay(c);
+      this.drawPeers(c);
     };
 
     this.router = new PointerRouter(this.wet, {
@@ -580,6 +595,7 @@ export class Editor {
 
   /** Titre enregistré dans le document (hors historique d'annulation). */
   setTitle(title: string) {
+    if (this.readOnly) return;
     const { meta } = roots(this.nb.doc);
     if (meta.get('title') !== title) meta.set('title', title);
   }
@@ -662,6 +678,77 @@ export class Editor {
       }
     }
     return best;
+  }
+
+  // ── Présence (carnet synchronisé) ───────────────────────
+
+  /** Point de page sous une position écran (pixels CSS dans la zone de dessin). */
+  locate(sx: number, sy: number): { pageId: ID; x: number; y: number } | null {
+    const [x, y] = this.viewport.toWorld(sx, sy);
+    const l = this.layout.pages.find((p) => containsPoint(p, x, y));
+    return l ? { pageId: l.id, x: Math.round((x - l.x) * 10) / 10, y: Math.round((y - l.y) * 10) / 10 } : null;
+  }
+
+  /** Trait en cours d'écriture (allégé), pour que les autres le voient se former. */
+  liveStroke(): Peer['ink'] {
+    const wet = this.renderer.wet;
+    const el = wet?.item.el;
+    if (!wet || el?.type !== 'stroke') return null;
+    const src = wet.item.pts;
+    const n = src.length / 4;
+    const step = Math.max(1, Math.ceil(n / 200));
+    const pts: number[] = [];
+    for (let i = 0; i < n; i += step) pts.push(Math.round(src[i * 4] * 10) / 10, Math.round(src[i * 4 + 1] * 10) / 10);
+    return { pageId: wet.pageId, color: el.color, width: el.width, pts };
+  }
+
+  setPeers(peers: Peer[]) {
+    this.peers = peers;
+    this.renderer.invalidateWet();
+  }
+
+  private drawPeers(c: CanvasRenderingContext2D) {
+    if (!this.peers.length) return;
+    const vp = this.viewport;
+    for (const p of this.peers) {
+      const ink = p.ink;
+      const l = ink && this.layout.pages.find((x) => x.id === ink.pageId);
+      if (ink && l && ink.pts.length >= 4) {
+        this.pageTransform(c, l);
+        c.globalAlpha = 0.75;
+        c.strokeStyle = ink.color;
+        c.lineWidth = Math.max(ink.width, 1 / vp.zoom);
+        c.lineCap = 'round';
+        c.lineJoin = 'round';
+        c.beginPath();
+        c.moveTo(ink.pts[0], ink.pts[1]);
+        for (let i = 2; i < ink.pts.length; i += 2) c.lineTo(ink.pts[i], ink.pts[i + 1]);
+        c.stroke();
+        c.globalAlpha = 1;
+      }
+      const cur = p.cursor;
+      const cl = cur && this.layout.pages.find((x) => x.id === cur.pageId);
+      if (!cur || !cl) continue;
+      const [sx, sy] = vp.toScreen(cl.x + cur.x, cl.y + cur.y);
+      const d = vp.dpr;
+      c.setTransform(d, 0, 0, d, 0, 0);
+      c.fillStyle = p.color;
+      c.beginPath();
+      c.moveTo(sx, sy);
+      c.lineTo(sx + 4, sy + 13);
+      c.lineTo(sx + 7.5, sy + 8.5);
+      c.lineTo(sx + 13, sy + 7);
+      c.closePath();
+      c.fill();
+      c.font = '600 11px system-ui, sans-serif';
+      const w = c.measureText(p.name).width + 10;
+      c.beginPath();
+      c.roundRect(sx + 10, sy + 12, w, 17, 8);
+      c.fill();
+      c.fillStyle = '#fff';
+      c.fillText(p.name, sx + 15, sy + 24.5);
+    }
+    c.setTransform(1, 0, 0, 1, 0, 0);
   }
 
   // ── PDF : liens, sommaire, recherche ────────────────────
@@ -809,6 +896,7 @@ export class Editor {
   }
 
   private transact(fn: (doc: Y.Doc) => void) {
+    if (this.readOnly) return;
     this.nb.undo.stopCapturing();
     this.nb.doc.transact(() => fn(this.nb.doc), LOCAL_ORIGIN);
     this.nb.undo.stopCapturing();

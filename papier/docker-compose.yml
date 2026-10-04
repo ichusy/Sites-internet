@@ -1,0 +1,33 @@
+# Papier sur votre serveur, en HTTPS automatique (certificat Let's Encrypt via Caddy).
+#   1. Faites pointer votre nom de domaine vers ce serveur (enregistrement DNS A/AAAA).
+#   2. Copiez .env.example en .env et renseignez DOMAIN.
+#   3. docker compose up -d
+services:
+  papier:
+    build: .
+    restart: unless-stopped
+    environment:
+      PUBLIC_URL: https://${DOMAIN:?indiquez DOMAIN dans le fichier .env}
+      # Création de comptes : le premier compte est toujours possible ; mettez "true" pour en autoriser d'autres.
+      ALLOW_SIGNUP: ${ALLOW_SIGNUP:-false}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-500}
+    volumes:
+      - papier-data:/data
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - papier
+
+volumes:
+  papier-data:
+  caddy-data:

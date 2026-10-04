@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import { IndexeddbPersistence, clearDocument } from 'y-indexeddb';
-import { LOCAL_ORIGIN, SCHEMA_VERSION, initNotebook, insertPage, listPages, roots } from '../model/notebookDoc';
+import { LOCAL_ORIGIN, SCHEMA_VERSION, initNotebook, insertPage, isRemoteOrigin, listPages, roots } from '../model/notebookDoc';
 import { newId } from '../model/ids';
 import type { ID, NotebookRecord, PageData } from '../model/types';
 import { db } from './db';
@@ -17,17 +17,23 @@ export interface OpenNotebook {
   close(): Promise<void>;
 }
 
-/** Ouvre le document d'un carnet depuis IndexedDB (et le crée s'il est vide). */
-export async function openNotebook(record: NotebookRecord): Promise<OpenNotebook> {
+/**
+ * Ouvre le document d'un carnet depuis IndexedDB. S'il est vide, une première page est créée,
+ * sauf avec `init: false` (carnet synchronisé pas encore téléchargé : on ne crée rien qui
+ * viendrait s'ajouter aux pages du serveur).
+ */
+export async function openNotebook(record: NotebookRecord, opts: { init?: boolean } = {}): Promise<OpenNotebook> {
   const doc = new Y.Doc();
   const persistence = new IndexeddbPersistence(docName(record.id), doc);
   await persistence.whenSynced;
 
-  initNotebook(doc, record.title, {
-    width: record.paper.width,
-    height: record.paper.height,
-    template: record.template,
-  });
+  if (opts.init !== false) {
+    initNotebook(doc, record.title, {
+      width: record.paper.width,
+      height: record.paper.height,
+      template: record.template,
+    });
+  }
 
   const { pageOrder, pages } = roots(doc);
   const undo = new Y.UndoManager([pageOrder, pages], {
@@ -38,17 +44,24 @@ export async function openNotebook(record: NotebookRecord): Promise<OpenNotebook
 
   // Tient à jour l'index de la bibliothèque (date de modification, nombre de pages).
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let localChange = false;
   const syncMeta = () => {
     timer = undefined;
-    void db.notebooks.update(record.id, {
-      updatedAt: Date.now(),
-      pageCount: pageOrder.length,
-    });
+    // Date de modification : seulement pour les modifications faites sur cet appareil
+    // (l'autre appareil a déjà mis à jour la sienne, reçue par la bibliothèque).
+    if (localChange) {
+      void db.notebooks.update(record.id, {
+        updatedAt: Date.now(),
+        pageCount: pageOrder.length,
+      });
+    }
+    localChange = false;
     // Index de recherche (texte tapé, pages de PDF) tenu à jour au fil de l'eau.
     void db.searchindex.put(buildIndex(record.id, doc));
   };
   const onUpdate = (_u: Uint8Array, origin: unknown) => {
     if (origin === persistence) return;
+    if (!isRemoteOrigin(origin)) localChange = true;
     clearTimeout(timer);
     timer = setTimeout(syncMeta, 800);
   };
@@ -117,6 +130,22 @@ export async function createNotebookDoc(record: NotebookRecord, opts: NewDocOpti
   await persistence.destroy();
   doc.destroy();
   return pageCount;
+}
+
+/**
+ * Ouvre le document d'un carnet le temps d'une opération (synchronisation en arrière-plan) :
+ * les modifications faites par `fn` sont enregistrées dans IndexedDB.
+ */
+export async function withNotebookDoc<T>(id: ID, fn: (doc: Y.Doc) => Promise<T>): Promise<T> {
+  const doc = new Y.Doc();
+  const persistence = new IndexeddbPersistence(docName(id), doc);
+  await persistence.whenSynced;
+  try {
+    return await fn(doc);
+  } finally {
+    await persistence.destroy();
+    doc.destroy();
+  }
 }
 
 /**

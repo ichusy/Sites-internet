@@ -11,7 +11,7 @@
   import { customTemplateRef, importTemplate } from '../templates';
   import PageThumb from './PageThumb.svelte';
 
-  let { editor, current, pageCount }: { editor: Editor; current: number; pageCount: number } = $props();
+  let { editor, current, pageCount, readOnly = false }: { editor: Editor; current: number; pageCount: number; readOnly?: boolean } = $props();
 
   // Recalculé quand le nombre de pages change ou que leur ordre/format change.
   let pages = $state.raw<PageLayout[]>([]);
@@ -111,20 +111,24 @@
           <PageThumb {editor} pageId={p.id} width={104} />
         </button>
         <div class="bar">
-          <span class="grip" title="Glisser pour déplacer" onpointerdown={(e) => startDrag(e, p.index)} role="presentation">
-            <GripVertical size={14} />
-          </span>
+          {#if !readOnly}
+            <span class="grip" title="Glisser pour déplacer" onpointerdown={(e) => startDrag(e, p.index)} role="presentation">
+              <GripVertical size={14} />
+            </span>
+          {/if}
           <span class="num">{p.index + 1}</span>
-          <Menu items={() => items(p)} label="Actions de la page {p.index + 1}" />
+          {#if !readOnly}<Menu items={() => items(p)} label="Actions de la page {p.index + 1}" />{/if}
         </div>
       </div>
     {/each}
     {#if drag && drag.to === pages.length && drag.from !== pages.length - 1}
       <div class="drop"></div>
     {/if}
-    <button type="button" class="add" onclick={() => editor.addPage(pages.length - 1)}>
-      <FilePlus size={16} /> Ajouter
-    </button>
+    {#if !readOnly}
+      <button type="button" class="add" onclick={() => editor.addPage(pages.length - 1)}>
+        <FilePlus size={16} /> Ajouter
+      </button>
+    {/if}
   </div>
 </div>
 

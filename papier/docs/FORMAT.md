@@ -34,6 +34,7 @@ leur structure pour qu'elles restent lisibles sans l'application. Les archives
 | paper | `{ width, height }` | format des nouvelles pages |
 | template | TemplateRef | modèle des nouvelles pages |
 | createdAt, updatedAt, openedAt | number | |
+| share | `{ server, token, mode: "view" \| "edit", owner }` | optionnel : carnet reçu par un lien de partage |
 
 ### `templates` (modèles de page importés)
 `{ id, name, assetId, kind: "image" | "pdf", pageIndex, width, height, createdAt }`.
@@ -49,6 +50,17 @@ Une page qui utilise un tel modèle en garde une copie autonome dans son
 | `searchindex` | `{ notebookId, updatedAt, pages: [{ pageId, texts, pdf? }], audio?: [{ recordingId, title, texts }] }` : texte tapé de chaque page et transcriptions, pour la recherche dans la bibliothèque |
 
 Elles peuvent être supprimées sans perte : Papier les reconstruit à la demande.
+
+### `syncstate` (synchronisation, propre à l'appareil)
+
+`{ id: <carnet>, dirtyAt, syncedAt, error? }` : le carnet est à synchroniser quand
+`dirtyAt ≥ syncedAt`. Supprimable sans perte (tout est alors revérifié).
+
+### Bibliothèque synchronisée (`papier-library-<compte>`, Yjs)
+
+Avec un compte, la bibliothèque est aussi un Y.Doc (persisté localement et sur le
+serveur) : `folders`, `notebooks`, `templates` sont des `Y.Map<id, enregistrement>`
+contenant les mêmes objets que les tables ci-dessus (sans `openedAt` ni `share`).
 
 ### Enregistrements en cours (`recdrafts`, `recchunks`)
 
@@ -228,6 +240,16 @@ Rendu de référence : contour [perfect-freehand](https://github.com/steveruizok
 pour le stylo plein ; ligne médiane de largeur `width` pour le surligneur
 (composition *multiply*) et les traits pointillés/tirets.
 
+## Serveur de synchronisation (`DATA_DIR`)
+
+| Élément | Contenu |
+|---|---|
+| `papier.sqlite` | tables `users` (e-mail, nom, mot de passe en scrypt), `sessions` (jeton haché), `docs` (`lib:<compte>` ou `nb:<carnet>`, propriétaire), `doc_updates` (mises à jour Yjs binaires, dans l'ordre), `snapshots` (états complets datés), `shares` (jeton, carnet, mode, révoqué), `assets` (empreinte, type, taille) |
+| `assets/<sha256>` | fichiers (PDF, images, audio), à l'identique |
+
+Un document s'obtient en appliquant ses `doc_updates` dans l'ordre à un Y.Doc vide :
+c'est exactement le même document que sur les appareils (voir plus haut).
+
 ## Archive `.papier`
 
 Fichier zip :
@@ -276,3 +298,5 @@ d'une migration automatique à l'ouverture du carnet.
   tels quels.
 - **v2 (étape 5)** : enregistrements audio (`recordings`, et `recordings` dans le
   JSON des archives). Ajout uniquement.
+- **v2 (étape 10)** : champ `share` des carnets, table `syncstate`, bibliothèque
+  synchronisée. Aucun changement du contenu des carnets.

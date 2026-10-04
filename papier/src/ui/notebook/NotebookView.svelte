@@ -4,7 +4,14 @@
   import { db } from '../../core/storage/db';
   import { updateNotebook } from '../../core/storage/library';
   import { openNotebook, type OpenNotebook } from '../../core/storage/notebookStore';
-  import { Archive, FileDown, FileInput } from '@lucide/svelte';
+  import { Archive, FileDown, FileInput, History, Share2 } from '@lucide/svelte';
+  import { listPages } from '../../core/model/notebookDoc';
+  import { syncEngine, syncState, type LiveConnection } from '../../sync/sync.svelte';
+  import { Presence, colorFor } from './presence.svelte';
+  import PeersBar from './PeersBar.svelte';
+  import ShareDialog from '../sync/ShareDialog.svelte';
+  import HistoryDialog from '../sync/HistoryDialog.svelte';
+  import { guestName } from '../sync/guest';
   import { Editor, hasClipboard, type EditorState, type SelectionInfo } from '../../engine/Editor';
   import { pickFiles } from '../../io/files';
   import { exportNotebookArchive, exportNotebookPdf, pagesForInsertion } from '../actions';
@@ -62,11 +69,21 @@
   let textReq = $state<TextEditRequest | null>(null);
   let textarea = $state<HTMLTextAreaElement>();
   let audio = $state.raw<NotebookAudio | null>(null);
+  /** Carnet synchronisé dont le contenu n'a pas encore pu être téléchargé (hors ligne). */
+  let notDownloaded = $state(false);
+  let loadingRemote = $state(false);
+  let presence = $state.raw<Presence | null>(null);
+  let shareOpen = $state(false);
+  let historyOpen = $state(false);
+  /** Carnet reçu par un lien en lecture seule. */
+  const readOnly = $derived(record?.share?.mode === 'view');
+  const synced = $derived(!!record && (!!record.share || !!syncState.account));
   /** Outil repris quand on quitte le mode « toucher pour écouter ». */
   let toolBeforeListen: ToolName = 'pen';
   const listening = $derived(tool === 'listen');
 
   function setListening(on: boolean) {
+    if (readOnly) return;
     if (on && tool !== 'listen') {
       toolBeforeListen = tool;
       tool = 'listen';
@@ -152,13 +169,35 @@
         return;
       }
       record = rec;
-      opened = await openNotebook(rec);
+      // Carnet synchronisé : on récupère d'abord la dernière version (8 s au plus).
+      const managed = syncEngine.manages(rec);
+      if (managed) {
+        loadingRemote = true;
+        await syncEngine.prepare(rec);
+        loadingRemote = false;
+        if (cancelled) return;
+      }
+      opened = await openNotebook(rec, { init: !managed });
       if (cancelled) {
         await opened.close();
         return;
       }
+      if (managed && !listPages(opened.doc).length) {
+        // Jamais téléchargé et serveur injoignable : on ne crée surtout pas de page vide.
+        notDownloaded = true;
+        await opened.close();
+        opened = null;
+        return;
+      }
       await tick();
       const ed = new Editor(container!, opened, settings.styles);
+      ed.readOnly = rec.share?.mode === 'view';
+      if (ed.readOnly) tool = 'listen';
+      const live: LiveConnection | null = syncEngine.connectNotebook(rec, opened.doc);
+      if (live) {
+        const name = syncState.account?.user.name ?? guestName();
+        presence = new Presence(live.provider.awareness, ed, container!, { name, color: colorFor(name + live.provider.awareness.clientID) });
+      }
       const offState = ed.onState((s) => {
         es = s;
         canPaste = hasClipboard();
@@ -198,6 +237,9 @@
         offSearch();
         offLink();
         offListen();
+        presence?.destroy();
+        presence = null;
+        live?.destroy();
       };
       editor = ed;
       audio = notebookAudio;
@@ -327,10 +369,21 @@
   }
 
   const docItems = (): MenuItem[] => [
-    infinite
-      ? { label: 'Insérer des images…', icon: FileInput, action: insertImage }
-      : { label: 'Insérer un PDF ou des images…', icon: FileInput, action: async () => insertFiles(await pickFiles('.pdf,application/pdf,image/*')) },
-    { separator: true },
+    ...(record && !record.share && syncState.account
+      ? [
+          { label: 'Partager…', icon: Share2, action: () => (shareOpen = true) },
+          { label: 'Historique des versions…', icon: History, action: () => (historyOpen = true) },
+          { separator: true } as MenuItem,
+        ]
+      : []),
+    ...(readOnly
+      ? []
+      : [
+          infinite
+            ? { label: 'Insérer des images…', icon: FileInput, action: insertImage }
+            : { label: 'Insérer un PDF ou des images…', icon: FileInput, action: async () => insertFiles(await pickFiles('.pdf,application/pdf,image/*')) },
+          { separator: true } as MenuItem,
+        ]),
     { label: 'Exporter en PDF', icon: FileDown, action: () => editor && exportNotebookPdf(editor.doc, true) },
     ...(infinite
       ? []
@@ -352,6 +405,8 @@
     if (document.querySelector('dialog[open]')) return;
     const mod = e.ctrlKey || e.metaKey;
     const key = e.key.toLowerCase();
+    // Lecture seule : seulement la navigation, le zoom, la recherche et la lecture audio.
+    if (readOnly && !(mod && key === 'f') && !['+', '=', '-', '0', 'pagedown', 'pageup', ' '].includes(key)) return;
     if (mod && key === 'z') {
       e.preventDefault();
       if (e.shiftKey) editor.redo();
@@ -409,9 +464,13 @@
 <svelte:window onkeydown={onKey} />
 
 <div class="notebook">
-  {#if missing}
+  {#if missing || notDownloaded}
     <div class="missing">
-      <p>Ce carnet n’existe pas ou a été supprimé.</p>
+      {#if notDownloaded}
+        <p>Ce carnet n’a pas encore été téléchargé sur cet appareil et le serveur est injoignable.<br />Reconnectez-vous à Internet puis rouvrez-le.</p>
+      {:else}
+        <p>Ce carnet n’existe pas ou a été supprimé.</p>
+      {/if}
       <a class="btn" href={links.all}>Retour à la bibliothèque</a>
     </div>
   {:else}
@@ -431,8 +490,9 @@
       oninsertimage={insertImage}
       onsticker={insertSticker}
       {infinite}
+      {readOnly}
       recording={!!audio && audio.recState !== 'idle'}
-      canRecord={!!audio?.supported}
+      canRecord={!!audio?.supported && !readOnly}
       onrecord={() => void audio?.startRecording()}
     />
     <div class="workspace">
@@ -461,14 +521,20 @@
       {#if audio}
         <AudioDock {audio} panelOpen={panel === 'audio'} {listening} onlisten={setListening} />
       {/if}
+      {#if loadingRemote}
+        <div class="loading">Synchronisation du carnet…</div>
+      {/if}
+      {#if presence || readOnly || (synced && record)}
+        <PeersBar peers={presence?.peers ?? []} {readOnly} owner={record?.share?.owner ?? ''} />
+      {/if}
       {#if editor && panel}
         <SidePanel bind:tab={panel} tabs={infinite ? ['outline', 'search', 'audio'] : undefined}>
           {#if panel === 'pages'}
-            <PagesPanel {editor} current={es.currentPage} pageCount={es.pageCount} />
+            <PagesPanel {editor} current={es.currentPage} pageCount={es.pageCount} {readOnly} />
           {:else if panel === 'outline'}
             <OutlinePanel {outlines} loading={pdfLoading} ongo={goToOutline} />
           {:else if panel === 'audio'}
-            {#if audio}<AudioPanel {audio} {listening} onlisten={setListening} />{/if}
+            {#if audio}<AudioPanel {audio} {listening} onlisten={setListening} {readOnly} />{/if}
           {:else}
             <SearchPanel bind:query={searchQuery} bind:input={searchInput} {hits} active={activeHit} pending={pdfLoading} onpick={(i) => editor?.focusSearchResult(i)} {audioHits} onaudio={openAudioHit} />
           {/if}
@@ -478,7 +544,26 @@
   {/if}
 </div>
 
+{#if shareOpen && record}
+  <ShareDialog notebook={record} onclose={() => (shareOpen = false)} />
+{/if}
+{#if historyOpen && record}
+  <HistoryDialog notebook={record} onclose={() => (historyOpen = false)} />
+{/if}
+
 <style>
+  .loading {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 10px 16px;
+    border-radius: 10px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    color: var(--muted);
+    font-size: 14px;
+  }
   .notebook {
     height: 100%;
     display: flex;

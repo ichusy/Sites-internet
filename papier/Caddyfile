@@ -1,0 +1,5 @@
+# HTTPS automatique pour Papier (WebSocket compris).
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy papier:8787
+}

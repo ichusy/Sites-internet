@@ -2,7 +2,8 @@ export type LibraryView = 'all' | 'favorites' | 'recent' | 'folder';
 
 export type Route =
   | { name: 'library'; view: LibraryView; folderId: string | null }
-  | { name: 'notebook'; id: string; q?: string; page?: number };
+  | { name: 'notebook'; id: string; q?: string; page?: number }
+  | { name: 'share'; token: string };
 
 function parse(hash: string): Route {
   const [path, search = ''] = hash.replace(/^#\/?/, '').split('?');
@@ -12,6 +13,7 @@ function parse(hash: string): Route {
     const page = params.get('p');
     return { name: 'notebook', id: parts[1], q: params.get('q') ?? undefined, page: page ? Number(page) : undefined };
   }
+  if (parts[0] === 's' && parts[1]) return { name: 'share', token: parts[1] };
   if (parts[0] === 'f' && parts[1]) return { name: 'library', view: 'folder', folderId: parts[1] };
   if (parts[0] === 'favoris') return { name: 'library', view: 'favorites', folderId: null };
   if (parts[0] === 'recents') return { name: 'library', view: 'recent', folderId: null };

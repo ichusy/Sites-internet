@@ -1,7 +1,7 @@
 node_modules
+server/node_modules
 dist
 dev-dist
-*.local
 papier-data
-.env
-server/node_modules
+*.local
+.git

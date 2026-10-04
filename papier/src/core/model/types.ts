@@ -210,6 +210,16 @@ export interface FolderRecord {
 
 export type NotebookKind = 'paged' | 'canvas';
 
+/** Carnet reçu par un lien de partage (il appartient à quelqu'un d'autre). */
+export interface ShareRef {
+  /** Serveur Papier qui héberge le carnet. */
+  server: string;
+  token: string;
+  mode: 'view' | 'edit';
+  /** Nom du propriétaire. */
+  owner: string;
+}
+
 export interface NotebookRecord {
   id: ID;
   folderId: ID | null;
@@ -225,6 +235,8 @@ export interface NotebookRecord {
   createdAt: number;
   updatedAt: number;
   openedAt: number;
+  /** Présent si le carnet vient d'un lien de partage (non synchronisé avec la bibliothèque du compte). */
+  share?: ShareRef;
 }
 
 /** Modèle de page importé par l'utilisateur. */

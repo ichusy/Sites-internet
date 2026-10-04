@@ -32,7 +32,8 @@ Autres commandes :
 | Commande        | Rôle                                   |
 |-----------------|----------------------------------------|
 | `npm test`      | tests unitaires (Vitest)               |
-| `npm run check` | vérification des types (svelte-check)  |
+| `npm run check` | vérification des types (application et serveur) |
+| `npm run server` | serveur de synchronisation (voir plus bas) |
 
 Le dossier `dist/` produit par `npm run build` est statique : il peut être servi
 depuis n'importe quel sous-dossier (GitHub Pages, Netlify, serveur web…).
@@ -140,6 +141,71 @@ importé en copie, rien d'existant n'est écrasé.
 
 « Écrire au doigt » (réglages de la bibliothèque) : *Auto* (le doigt écrit tant
 qu'aucun stylet n'a été détecté), *Toujours* ou *Jamais*.
+
+## Synchronisation, partage et collaboration (facultatif)
+
+Sans compte, tout reste sur l'appareil. Avec votre propre **serveur Papier**, vous
+retrouvez vos carnets sur tous vos appareils, ils sont sauvegardés (avec un
+historique) et vous pouvez les partager par lien et écrire à plusieurs en temps réel.
+
+### Installer le serveur (Docker, HTTPS automatique)
+
+Sur une machine accessible depuis Internet (petit VPS, ~5 €/mois, ou machine chez
+vous avec le port 443 ouvert), avec Docker installé :
+
+```bash
+git clone <ce dépôt> && cd <dépôt>/papier
+cp .env.example .env        # puis indiquez votre domaine : DOMAIN=notes.exemple.fr
+docker compose up -d        # Papier + Caddy (certificat HTTPS Let's Encrypt automatique)
+```
+
+Le nom de domaine doit pointer vers la machine (enregistrement DNS A/AAAA). Ouvrez
+ensuite `https://notes.exemple.fr` : c'est l'application, servie par le serveur.
+*Réglages ⚙ → Se connecter à un serveur…* : créez le **premier compte** (le vôtre).
+La création d'autres comptes est fermée, sauf `ALLOW_SIGNUP=true` dans `.env` ;
+les personnes avec qui vous partagez n'ont pas besoin de compte.
+
+HTTPS est indispensable (installation PWA, micro, presse-papiers). Les données du
+serveur sont dans le volume Docker `papier-data` (base SQLite + fichiers) : à
+sauvegarder comme n'importe quel dossier (`docker compose cp papier:/data ./sauvegarde`).
+
+Sans Docker (Node.js ≥ 22.18) : `npm run build` puis
+
+```bash
+PUBLIC_URL=https://notes.exemple.fr DATA_DIR=/var/lib/papier npm run server
+```
+
+derrière un proxy HTTPS (Caddy, nginx…) qui transmet aussi les WebSocket (`/sync/`).
+
+| Variable | Défaut | Rôle |
+|---|---|---|
+| `PUBLIC_URL` | `http://localhost:8787` | adresse publique, utilisée dans les liens de partage |
+| `PORT` / `HOST` | `8787` / `0.0.0.0` | écoute |
+| `DATA_DIR` | `./papier-data` | base SQLite et fichiers |
+| `ALLOW_SIGNUP` | `false` | autoriser d'autres comptes que le premier |
+| `STATIC_DIR` | `./dist` | application servie (vide : API seule) |
+| `MAX_UPLOAD_MB` | `500` | taille maximale d'un fichier envoyé |
+
+### Utiliser
+
+- **Se connecter** : *Réglages → Se connecter à un serveur…* (adresse pré-remplie si
+  l'application est servie par votre serveur). Les carnets déjà présents sur
+  l'appareil sont envoyés ; ceux des autres appareils arrivent. L'état s'affiche en
+  bas de la barre latérale (*Synchronisé*, *Hors ligne*…).
+- **Plusieurs appareils** : dossiers, carnets, pages, audio, PDF se synchronisent ;
+  un carnet ouvert sur deux appareils se met à jour en direct. Hors ligne, on
+  continue normalement : les modifications des deux côtés sont **fusionnées** au
+  retour du réseau, sans conflit ni perte.
+- **Partager** : dans un carnet, menu *⋯ → Partager…* → *Lien de lecture* ou *Lien
+  de modification* (copié automatiquement). La personne ouvre le lien, sans compte ;
+  le carnet apparaît dans sa bibliothèque avec la mention « Partagé par … ». Avec un
+  lien de modification, on écrit ensemble : chacun voit le **curseur** et le **trait
+  en cours** des autres. Un lien se désactive à tout moment (icône corbeille).
+- **Historique** : menu *⋯ → Historique des versions…* : une version par heure de
+  modification (toutes celles des 2 derniers jours, puis une par jour pendant un
+  mois, une par semaine pendant un an). *Ouvrir une copie* crée un nouveau carnet
+  à partir de cette version.
+- **Se déconnecter** laisse les carnets sur l'appareil.
 
 ## Compatibilité
 
