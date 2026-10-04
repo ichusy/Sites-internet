@@ -43,7 +43,7 @@ depuis n'importe quel sous-dossier (GitHub Pages, Netlify, serveur web…).
 | Défiler | 1 doigt (dès qu'un stylet a été utilisé) | molette, clic milieu, Espace + glisser |
 | Zoomer | pincer | Ctrl/⌘ + molette, pincement trackpad, `+` / `-`, `0` = ajuster |
 | Annuler / rétablir | tap 2 doigts / tap 3 doigts | Ctrl/⌘+Z / Ctrl/⌘+Maj+Z |
-| Outils | barre d'outils | `P` stylo, `C` crayon, `H` surligneur, `E` gomme, `L` lasso, `T` texte |
+| Outils | barre d'outils | `P` stylo, `C` crayon, `H` surligneur, `E` gomme, `L` lasso, `T` texte, `N` post-it, `K` connecteur |
 | Sélection (lasso) | entourer, ou toucher un trait | Ctrl/⌘+C / X / V / D, Suppr, Échap, Ctrl/⌘+A |
 
 **Lasso** : entourez des traits (ou touchez-en un) pour les sélectionner, glissez
@@ -67,6 +67,22 @@ taille dans la barre d'outils, y compris pendant la saisie.
 
 **Images et autocollants** : bouton d'insertion de la barre d'outils (photo,
 image ou l'un des 16 autocollants intégrés), placés au centre de la page.
+
+**Tableau blanc infini** : *Nouveau carnet → Type : Tableau blanc infini*. Une
+seule surface sans bords, fond pointillé ; on dézoome jusqu'à 8 % pour avoir une
+vue d'ensemble, et `0` (ou un clic sur le pourcentage de zoom, *Tout voir*) cadre tout le contenu.
+Tous les outils y fonctionnent (encre, texte, images, lasso, recherche, export PDF :
+une page unique à la taille du contenu).
+
+**Post-its** (`N`) : toucher pour en poser un et écrire dedans ; toucher un post-it
+existant pour modifier son texte. Couleur et taille du texte dans la barre d'outils.
+Il grandit avec son texte ; le lasso le déplace, le redimensionne, le fait pivoter.
+
+**Connecteurs** (`K`) : glisser d'un élément (post-it, texte, image) vers un autre
+pour les relier par une courbe ; ils suivent les éléments quand on les déplace et
+disparaissent avec eux. Partir ou arriver dans le vide crée une extrémité libre.
+Couleur, épaisseur et flèches (aucune, à la fin, aux deux bouts) dans la barre
+d'outils. Disponibles aussi dans les carnets de pages.
 
 **Modèles de page** : blanc, ligné, quadrillé, pointillé, Cornell, semainier, ou
 *Importer un modèle…* (une image ou la 1re page d'un PDF), depuis le menu d'une

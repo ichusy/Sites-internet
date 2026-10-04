@@ -80,8 +80,43 @@ export interface ImageElement extends ElementBase {
   sticker?: boolean;
 }
 
+/** Post-it : carré coloré contenant du texte (tableau blanc, cartes mentales). */
+export interface StickyElement extends ElementBase {
+  type: 'sticky';
+  x: number;
+  y: number;
+  width: number;
+  /** Hauteur : au moins la largeur, agrandie si le texte déborde. */
+  height: number;
+  /** Couleur du papier du post-it. */
+  color: string;
+  text: string;
+  fontSize: number;
+}
+
+/** Extrémité de connecteur : accrochée à un élément (id) ou libre ; x, y = dernière position connue. */
+export interface ConnectorEnd {
+  id?: ID;
+  x: number;
+  y: number;
+}
+
+/** Connecteur (flèche courbe) reliant deux éléments ou deux points. */
+export interface ConnectorElement extends ElementBase {
+  type: 'connector';
+  from: ConnectorEnd;
+  to: ConnectorEnd;
+  color: string;
+  width: number;
+  arrow: 'end' | 'both' | 'none';
+  dash: DashStyle;
+}
+
 /** Union de tous les éléments posables sur une page. */
-export type PageElement = StrokeElement | TextElement | ImageElement;
+export type PageElement = StrokeElement | TextElement | ImageElement | StickyElement | ConnectorElement;
+
+/** Éléments posés dans un rectangle local (+ matrice) : texte, image, post-it. */
+export type BoxElement = TextElement | ImageElement | StickyElement;
 
 export type TemplateKind = 'blank' | 'lined' | 'grid' | 'dots' | 'cornell' | 'planner' | 'custom';
 
@@ -104,6 +139,11 @@ export interface PageData {
   height: number;
   template: TemplateRef;
   background?: PageBackground;
+  /**
+   * Page sans bords (tableau blanc) : origine au centre, coordonnées libres.
+   * `width` et `height` sont alors purement indicatifs.
+   */
+  infinite?: boolean;
 }
 
 // ── Bibliothèque ─────────────────────────────────────────

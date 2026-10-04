@@ -19,6 +19,8 @@ export const HIGHLIGHTER_WIDTHS = [8, 14, 22];
 export const ERASER_SIZES = [10, 24, 48];
 export const PENCIL_WIDTHS = [0.8, 1.4, 2.4];
 export const TEXT_SIZES = [11, 14, 18, 24, 32];
+export const STICKY_COLORS = ['#fff3a3', '#ffd0e1', '#cbe6ff', '#cff3c6', '#ffdcb0', '#e3d7ff'];
+export const CONNECTOR_WIDTHS = [1, 1.6, 2.8];
 
 const DEFAULTS: Settings = {
   theme: 'system',
@@ -29,6 +31,8 @@ const DEFAULTS: Settings = {
     pencil: { color: '#3b3f47', width: 1.4 },
     eraser: { mode: 'stroke', size: 24 },
     text: { color: '#1f2430', size: 14 },
+    sticky: { color: '#fff3a3', size: 14 },
+    connector: { color: '#5b6474', width: 1.6, arrow: 'end' },
     gestures: { shapeRecognition: true, scribbleErase: true, loopSelect: true },
   },
   penPalette: ['#1f2430', '#2f5fd0', '#d03a3a', '#2f9e5a', '#8a4fd0', '#e08a1e'],
@@ -53,6 +57,8 @@ function load(): Settings {
         highlighter: { ...DEFAULTS.styles.highlighter, ...saved.styles?.highlighter },
         eraser: { ...DEFAULTS.styles.eraser, ...saved.styles?.eraser },
         text: { ...DEFAULTS.styles.text, ...saved.styles?.text },
+        sticky: { ...DEFAULTS.styles.sticky, ...saved.styles?.sticky },
+        connector: { ...DEFAULTS.styles.connector, ...saved.styles?.connector },
         gestures: { ...DEFAULTS.styles.gestures, ...saved.styles?.gestures },
       },
     };

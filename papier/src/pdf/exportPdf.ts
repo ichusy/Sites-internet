@@ -1,7 +1,11 @@
 import type * as PdfLib from 'pdf-lib';
 import type * as Y from 'yjs';
 import { listPages, pageElements, roots } from '../core/model/notebookDoc';
-import type { BBox, ID, ImageElement, Mat2D, PageData, StrokeElement, TextElement } from '../core/model/types';
+import type {
+  BBox, ConnectorElement, ID, ImageElement, Mat2D, PageData, StickyElement, StrokeElement, TextElement,
+} from '../core/model/types';
+import { arrowHead, connectorCurve } from '../engine/geometry/connector';
+import { STICKY_PAD, STICKY_TEXT_COLOR, type ItemLookup } from '../engine/render/draw';
 import { getAsset } from '../core/storage/assets';
 import { invertMat, multiplyMat } from '../engine/geometry/geom';
 import { strokeOutline, traceCenterline, traceOutline, tracePolyline, type PathSink } from '../engine/ink/brushes';
@@ -9,7 +13,7 @@ import {
   DOT_COLOR, LABEL_COLOR, LINE_COLOR, MARGIN_COLOR, STRUCTURE_COLOR, templatePrimitives, type Segment,
 } from '../engine/render/templates';
 import { BASELINE, LINE_HEIGHT, layoutText } from '../engine/render/text';
-import { isCenterline, isHighlight, makeItem, type RenderItem } from '../engine/scene';
+import { isCenterline, isHighlight, makeItem, resolveEnd, type RenderItem } from '../engine/scene';
 import { openPdf } from './pdfjs';
 
 export interface ExportOptions {
@@ -117,6 +121,7 @@ class PageWriter {
     private res: ExportResources,
     private page: PdfLib.PDFPage,
     private images: Map<ID, PdfLib.PDFImage | null>,
+    private lookup: ItemLookup,
   ) {}
 
   private get lib() {
@@ -181,7 +186,41 @@ class PageWriter {
     const el = item.el;
     if (el.type === 'stroke') this.stroke(item, el);
     else if (el.type === 'text') this.text(item, el);
+    else if (el.type === 'sticky') this.sticky(item, el);
+    else if (el.type === 'connector') this.connector(el);
     else this.image(item, el);
+  }
+
+  private sticky(item: RenderItem, el: StickyElement) {
+    const { lib, ops } = this;
+    const font = this.res.font!;
+    ops.push(lib.pushGraphicsState(), lib.concatTransformationMatrix(...item.matrix!));
+    ops.push(lib.setFillingRgbColor(...hexToRgb(el.color)), lib.rectangle(el.x, el.y, el.width, el.height), lib.fill());
+    ops.push(
+      lib.setGraphicsState(this.state('Normal', 0.04)),
+      lib.setFillingRgbColor(0, 0, 0),
+      lib.rectangle(el.x, el.y + el.height * 0.82, el.width, el.height * 0.18),
+      lib.fill(),
+      lib.setGraphicsState(this.state('Normal', 1)),
+    );
+    const lines = layoutText(this.res.sanitize(el.text), el.width - STICKY_PAD * 2, (s) => font.widthOfTextAtSize(s, el.fontSize));
+    this.textLines(lines, el.x + STICKY_PAD, el.y + STICKY_PAD + el.fontSize * BASELINE, el.fontSize, STICKY_TEXT_COLOR);
+    ops.push(lib.popGraphicsState());
+  }
+
+  private connector(el: ConnectorElement) {
+    const { lib, ops } = this;
+    const c = connectorCurve(resolveEnd(el.from, this.lookup), resolveEnd(el.to, this.lookup));
+    const rgb = hexToRgb(el.color);
+    ops.push(lib.pushGraphicsState(), lib.setStrokingRgbColor(...rgb), lib.setFillingRgbColor(...rgb), lib.setLineWidth(el.width));
+    ops.push(lib.setLineCap(lib.LineCapStyle.Round), lib.setLineJoin(lib.LineJoinStyle.Round));
+    if (el.dash === 'dashed') ops.push(lib.setDashPattern([el.width * 4, el.width * 3], 0));
+    else if (el.dash === 'dotted') ops.push(lib.setDashPattern([0, el.width * 2.5], 0));
+    ops.push(lib.moveTo(...c.p0), lib.appendBezierCurve(...c.c1, ...c.c2, ...c.p1), lib.stroke(), lib.setDashPattern([], 0));
+    const head = Math.max(8, el.width * 4);
+    const heads = el.arrow === 'both' ? [arrowHead(c.p1, c.c2, head), arrowHead(c.p0, c.c1, head)] : el.arrow === 'end' ? [arrowHead(c.p1, c.c2, head)] : [];
+    for (const [a, b, d] of heads) ops.push(lib.moveTo(...a), lib.lineTo(...b), lib.lineTo(...d), lib.closePath(), lib.fill());
+    ops.push(lib.popGraphicsState());
   }
 
   private stroke(item: RenderItem, el: StrokeElement) {
@@ -297,7 +336,43 @@ export async function exportPdf(doc: Y.Doc, opts: ExportOptions): Promise<Uint8A
     return sources.get(id)!;
   };
 
+  /** Écrit les éléments d'une page (surligneurs d'abord) dans le repère `m`, découpés à `clip`. */
+  const writeItems = async (pdfPage: PdfLib.PDFPage, page: PageData, m: Mat2D, clip: BBox, items: RenderItem[]) => {
+    const images = new Map<ID, PdfLib.PDFImage | null>();
+    for (const it of items) if (it.el.type === 'image' && !images.has(it.el.assetId)) images.set(it.el.assetId, await res.image(it.el.assetId));
+    const needsFont = items.some((it) => it.el.type === 'text' || it.el.type === 'sticky') || templatePrimitives(page).labels.length;
+    if (needsFont) await res.ensureFont();
+    const byId = new Map(items.map((it) => [it.id, it]));
+    const w = new PageWriter(res, pdfPage, images, (id) => byId.get(id));
+    w.ops.push(lib.pushGraphicsState(), lib.concatTransformationMatrix(...m));
+    w.ops.push(lib.rectangle(clip[0], clip[1], clip[2] - clip[0], clip[3] - clip[1]), lib.clip(), lib.endPath());
+    if (!page.infinite) w.template(page);
+    for (const it of items) if (isHighlight(it.el)) w.item(it);
+    for (const it of items) if (!isHighlight(it.el)) w.item(it);
+    w.ops.push(lib.popGraphicsState());
+    pdfPage.pushOperators(...w.ops);
+  };
+
   for (const page of listPages(doc)) {
+    // Connecteurs en dernier : leur tracé s'accroche aux éléments déjà préparés.
+    const byId = new Map<ID, RenderItem>();
+    const els = [...(pageElements(doc, page.id)?.values() ?? [])].sort((a, b) => Number(a.type === 'connector') - Number(b.type === 'connector'));
+    for (const el of els) byId.set(el.id, makeItem(el, (id) => byId.get(id)));
+    const all = [...byId.values()].sort((a, b) => a.z - b.z);
+
+    if (page.infinite) {
+      // Tableau blanc : une page à la taille du contenu, avec une marge.
+      const M = 32;
+      const [x0, y0, x1, y1] = all.length
+        ? all.map((i) => i.bbox).reduce((a, b) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])])
+        : [0, 0, 595, 842];
+      const w = x1 - x0 + 2 * M;
+      const h = y1 - y0 + 2 * M;
+      const pdfPage = out.addPage([w, h]);
+      await writeItems(pdfPage, page, [1, 0, 0, -1, M - x0, h - M + y0], [x0 - M, y0 - M, x1 + M, y1 + M], all);
+      continue;
+    }
+
     const bg = page.background;
     let pdfPage: PdfLib.PDFPage | null = null;
     // Repère Papier (Y vers le bas) → espace utilisateur PDF.
@@ -354,19 +429,7 @@ export async function exportPdf(doc: Y.Doc, opts: ExportOptions): Promise<Uint8A
       }
     }
 
-    const items = opts.annotations ? [...(pageElements(doc, page.id)?.values() ?? [])].map(makeItem).sort((a, b) => a.z - b.z) : [];
-    const images = new Map<ID, PdfLib.PDFImage | null>();
-    for (const it of items) if (it.el.type === 'image' && !images.has(it.el.assetId)) images.set(it.el.assetId, await res.image(it.el.assetId));
-    if (items.some((it) => it.el.type === 'text') || templatePrimitives(page).labels.length) await res.ensureFont();
-
-    const w = new PageWriter(res, pdfPage, images);
-    w.ops.push(lib.pushGraphicsState(), lib.concatTransformationMatrix(...m));
-    w.ops.push(lib.rectangle(0, 0, page.width, page.height), lib.clip(), lib.endPath());
-    w.template(page);
-    for (const it of items) if (isHighlight(it.el)) w.item(it);
-    for (const it of items) if (!isHighlight(it.el)) w.item(it);
-    w.ops.push(lib.popGraphicsState());
-    pdfPage.pushOperators(...w.ops);
+    await writeItems(pdfPage, page, m, [0, 0, page.width, page.height], opts.annotations ? all : []);
   }
 
   return out.save();

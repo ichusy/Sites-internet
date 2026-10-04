@@ -9,6 +9,8 @@ export const MAX_ZOOM = 10;
  */
 export class Viewport {
   zoom = 1;
+  minZoom = MIN_ZOOM;
+  maxZoom = MAX_ZOOM;
   panX = 0;
   panY = 0;
   /** Taille de la zone d'affichage en pixels CSS. */
@@ -33,7 +35,7 @@ export class Viewport {
 
   /** Zoom autour d'un point écran qui reste fixe. */
   zoomAt(factor: number, sx: number, sy: number) {
-    const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, this.zoom * factor));
+    const next = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom * factor));
     const [wx, wy] = this.toWorld(sx, sy);
     this.zoom = next;
     this.panX = sx - wx * next;

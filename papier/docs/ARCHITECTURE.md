@@ -127,6 +127,29 @@ src/
 - **Liens** : toucher simple du doigt (quand le doigt ne dessine pas), toucher
   avec le lasso hors de tout élément, ou Ctrl/⌘ + clic.
 
+## Étape 4 : tableau blanc infini
+
+- **Page infinie** (`PageData.infinite`) : la mise en page (`engine/layout.ts`) la
+  place seule à l'origine et ne renvoie pas de bornes ; `containsPoint` /
+  `intersectsRect` remplacent les tests de rectangle partout (outils, liens,
+  surcouches). La vue n'est plus bornée (`Editor.clampView`), le zoom descend à 8 %,
+  *Ajuster* cadre le contenu (`fitContent`).
+- **Rendu** : pas de cache par page (la page n'a pas de taille) ; on dessine le fond
+  pointillé sur le seul rectangle visible (pas doublé tant qu'il fait moins de
+  12 px) puis les éléments que l'index rbush renvoie pour ce rectangle.
+- **Post-it** : un `BoxElement` (rectangle local + matrice) comme le texte et les
+  images, donc lasso, rotation, export et recherche sans code spécifique, à part
+  le dessin et l'éditeur de texte (fond coloré, hauteur recalculée).
+- **Connecteurs** (`engine/geometry/connector.ts`) : courbe calculée à l'affichage
+  depuis les boîtes des éléments reliés (`resolveEnd` + `ItemLookup` de la scène).
+  La scène charge les connecteurs en dernier et recalcule ceux qui touchent un
+  élément modifié (`refreshConnectors`) pour garder une boîte englobante exacte
+  dans l'index (sélection et gomme précises). Les coordonnées de repli stockées sont
+  mises à jour dans la même transaction que le déplacement (un seul pas d'annulation),
+  et supprimer un élément supprime ses connecteurs.
+- **Export PDF** : une page infinie devient une page à la taille du contenu
+  (+ 32 pt de marge), sans modèle ; post-its et connecteurs y sont vectoriels.
+
 ## Export PDF
 
 - Page issue d'un PDF : la page d'origine est **recopiée** (pdf-lib `copyPages`),
@@ -151,7 +174,7 @@ src/
 | 1b | Lasso ; import PDF/images ; export PDF avec/sans annotations ; archive `.papier` | ✅ |
 | 2 | Crayon, gribouiller-pour-effacer, formes, texte, images, autocollants, modèles Cornell/planner/importés | ✅ |
 | 3 | PDF : sommaire, liens ; recherche plein texte | ✅ |
-| 4 | Canevas infini, post-its, connecteurs | |
+| 4 | Canevas infini, post-its, connecteurs | ✅ |
 | 5 | Audio synchronisé, transcription | |
 | 6 | Reconnaissance d'écriture, recherche manuscrite | |
 | 7 | Flashcards (SM-2) | |

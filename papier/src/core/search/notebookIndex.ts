@@ -11,9 +11,9 @@ export function buildIndex(notebookId: ID, doc: Y.Doc): NotebookIndexRecord {
     updatedAt: Date.now(),
     pages: listPages(doc).map((p) => {
       const texts = [...(pageElements(doc, p.id)?.values() ?? [])]
-        .filter((el) => el.type === 'text')
+        .filter((el) => el.type === 'text' || el.type === 'sticky')
         .sort((a, b) => a.z - b.z)
-        .map((el) => (el.type === 'text' ? el.text : ''));
+        .map((el) => (el.type === 'text' || el.type === 'sticky' ? el.text : ''));
       const entry: NotebookIndexRecord['pages'][number] = { pageId: p.id, texts };
       if (p.background?.kind === 'pdf') entry.pdf = { assetId: p.background.assetId, pageIndex: p.background.pageIndex };
       return entry;

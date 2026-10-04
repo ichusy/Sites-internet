@@ -4,6 +4,7 @@ import { encodePoints } from '../../core/model/pointCodec';
 import type { ID, StrokeElement } from '../../core/model/types';
 import { splitStroke, strokeHit, type EraserSweep } from '../geometry/erase';
 import { pointsBBox } from '../geometry/geom';
+import { intersectsRect } from '../layout';
 import { strokeHalfWidth } from '../scene';
 import type { Tool, ToolContext, ToolInput } from './types';
 
@@ -53,7 +54,7 @@ export class EraserTool implements Tool {
     const minY = Math.min(a.y, b.y) - r, maxY = Math.max(a.y, b.y) + r;
 
     for (const l of this.ctx.layouts()) {
-      if (l.x > maxX || l.x + l.width < minX || l.y > maxY || l.y + l.height < minY) continue;
+      if (!intersectsRect(l, minX, minY, maxX, maxY)) continue;
       const scene = this.ctx.scene(l.id);
       if (!scene) continue;
       const s: EraserSweep = { ax: a.x - l.x, ay: a.y - l.y, bx: b.x - l.x, by: b.y - l.y, r };
@@ -62,7 +63,12 @@ export class EraserTool implements Tool {
       const added: StrokeElement[] = [];
 
       for (const item of candidates) {
-        // La gomme n'agit que sur l'encre ; texte et images se suppriment au lasso.
+        // La gomme n'agit que sur l'encre et les connecteurs (effacés en entier) ;
+        // texte, images et post-its se suppriment au lasso.
+        if (item.el.type === 'connector') {
+          if (strokeHit(item.pts, strokeHalfWidth(item.el), s)) removed.push(item.id);
+          continue;
+        }
         if (item.el.type !== 'stroke') continue;
         const hw = strokeHalfWidth(item.el);
         if (styles.eraser.mode === 'stroke') {

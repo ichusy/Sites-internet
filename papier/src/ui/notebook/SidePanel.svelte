@@ -5,13 +5,14 @@
 <script lang="ts">
   import type { Snippet } from 'svelte';
 
-  let { tab = $bindable(), children }: { tab: PanelTab; children: Snippet } = $props();
+  let { tab = $bindable(), children, tabs }: { tab: PanelTab; children: Snippet; tabs?: PanelTab[] } = $props();
 
-  const TABS: { id: PanelTab; label: string }[] = [
+  const ALL: { id: PanelTab; label: string }[] = [
     { id: 'pages', label: 'Pages' },
     { id: 'outline', label: 'Sommaire' },
     { id: 'search', label: 'Recherche' },
   ];
+  const TABS = $derived(tabs ? ALL.filter((t) => tabs.includes(t.id)) : ALL);
 </script>
 
 <aside class="side" class:wide={tab !== 'pages'} aria-label="Panneau latéral">

@@ -1,7 +1,8 @@
-import type { CoverSpec, ID, NotebookRecord, TemplateRef } from '../../core/model/types';
+import type { CoverSpec, ID, NotebookKind, NotebookRecord, TemplateRef } from '../../core/model/types';
 
 export interface NotebookForm {
   title: string;
+  kind: NotebookKind;
   cover: CoverSpec;
   paper: { width: number; height: number };
   template: TemplateRef;

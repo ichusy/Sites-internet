@@ -48,7 +48,7 @@
   <div class="meta">
     <div class="text">
       <a href={links.notebook(nb.id)} class="title">{nb.title}</a>
-      <div class="sub">{nb.pageCount} page{nb.pageCount > 1 ? 's' : ''} · {date}</div>
+      <div class="sub">{nb.kind === 'canvas' ? 'Tableau blanc' : `${nb.pageCount} page${nb.pageCount > 1 ? 's' : ''}`} · {date}</div>
     </div>
     <button
       type="button"

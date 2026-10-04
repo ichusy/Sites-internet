@@ -5,7 +5,7 @@ import type { Renderer } from '../render/Renderer';
 import type { PageScene } from '../scene';
 import type { Viewport } from '../Viewport';
 
-export type ToolName = 'pen' | 'pencil' | 'highlighter' | 'eraser' | 'lasso' | 'text';
+export type ToolName = 'pen' | 'pencil' | 'highlighter' | 'eraser' | 'lasso' | 'text' | 'sticky' | 'connector';
 
 /** Éléments sélectionnés au lasso (toujours sur une seule page). */
 export interface Selection {
@@ -29,6 +29,18 @@ export interface TextStyle {
   color: string;
   /** Taille de police en points. */
   size: number;
+}
+
+export interface StickyStyle {
+  /** Couleur du papier. */
+  color: string;
+  size: number;
+}
+
+export interface ConnectorStyle {
+  color: string;
+  width: number;
+  arrow: 'end' | 'both' | 'none';
 }
 
 /** Gestes optionnels (désactivables dans les réglages de l'outil). */
@@ -59,6 +71,8 @@ export interface ToolStyles {
   highlighter: HighlighterStyle;
   eraser: EraserStyle;
   text: TextStyle;
+  sticky: StickyStyle;
+  connector: ConnectorStyle;
   gestures: GestureSettings;
 }
 
@@ -113,6 +127,10 @@ export interface TextEditRequest {
   text: string;
   /** Transformation de la zone existante (rotation, échelle). */
   transform?: Mat2D;
+  /** Texte d'un post-it (zone intérieure) plutôt que zone de texte libre. */
+  kind?: 'text' | 'sticky';
+  /** Fond de l'éditeur (couleur du post-it). */
+  background?: string;
 }
 
 export interface Tool {

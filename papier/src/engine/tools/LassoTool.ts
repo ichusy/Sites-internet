@@ -5,7 +5,7 @@ import {
 import { POINT_STRIDE } from '../../core/model/pointCodec';
 import { drawItem } from '../render/draw';
 import { pageAt, type PageLayout } from '../layout';
-import { strokeHalfWidth, type PageScene } from '../scene';
+import { isBox, strokeHalfWidth, type PageScene } from '../scene';
 import type { Selection, Tool, ToolContext, ToolInput } from './types';
 
 /** Rayon de saisie des poignées, en pixels écran. */
@@ -176,8 +176,8 @@ export class LassoTool implements Tool {
   private pickAt(scene: PageScene, x: number, y: number, tol: number): string[] {
     const hits = scene.query([x - tol, y - tol, x + tol, y + tol]).sort((a, b) => b.z - a.z);
     for (const item of hits) {
-      if (item.el.type !== 'stroke') {
-        // Texte, image : toucher à l'intérieur du rectangle (transformé).
+      if (isBox(item.el)) {
+        // Texte, image, post-it : toucher à l'intérieur du rectangle (transformé).
         const [u, v] = applyMat(invertMat(item.matrix!), x, y);
         const el = item.el;
         if (u >= el.x - tol && u <= el.x + el.width + tol && v >= el.y - tol && v <= el.y + el.height + tol) return [item.id];
@@ -230,7 +230,7 @@ export class LassoTool implements Tool {
       c.transform(...dragM);
       for (const id of sel.ids) {
         const item = scene.items.get(id);
-        if (item) drawItem(c, item, this.ctx.renderer.resources);
+        if (item) drawItem(c, item, this.ctx.renderer.resources, undefined, (id) => scene.items.get(id));
       }
     }
 

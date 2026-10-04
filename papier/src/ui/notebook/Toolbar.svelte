@@ -1,7 +1,7 @@
 <script lang="ts">
   import {
     ChevronLeft, ClipboardPaste, Eraser, FilePlus, Highlighter, ImagePlus, LassoSelect, PanelRight, Pen, Pencil, Redo2,
-    Search, SlidersHorizontal, TableOfContents, Type, Undo2, X,
+    Search, SlidersHorizontal, Spline, StickyNote, TableOfContents, Type, Undo2, X,
   } from '@lucide/svelte';
   import type { PanelTab } from './SidePanel.svelte';
   import type { Component } from 'svelte';
@@ -11,7 +11,9 @@
   import type { ToolName } from '../../engine/tools/types';
   import Popover from '../common/Popover.svelte';
   import { links } from '../router.svelte';
-  import { ERASER_SIZES, HIGHLIGHTER_WIDTHS, PENCIL_WIDTHS, PEN_WIDTHS, TEXT_SIZES, settings } from '../settings.svelte';
+  import {
+    CONNECTOR_WIDTHS, ERASER_SIZES, HIGHLIGHTER_WIDTHS, PENCIL_WIDTHS, PEN_WIDTHS, STICKY_COLORS, TEXT_SIZES, settings,
+  } from '../settings.svelte';
   import { STICKERS, stickerUrl, type Sticker } from '../stickers';
 
   interface Props {
@@ -29,10 +31,12 @@
     docItems: () => MenuItem[];
     oninsertimage: () => void;
     onsticker: (s: Sticker) => void;
+    /** Tableau blanc : pas de pages à ajouter, « tout voir » au lieu d'« ajuster à la largeur ». */
+    infinite: boolean;
   }
   let {
     title, tool = $bindable(), es, panel = $bindable(), onrename, onundo, onredo, onaddpage, onfit, canPaste, onpaste, docItems,
-    oninsertimage, onsticker,
+    oninsertimage, onsticker, infinite,
   }: Props = $props();
 
   const styles = settings.styles;
@@ -44,6 +48,13 @@
     { id: 'eraser', label: 'Gomme', key: 'E', icon: Eraser },
     { id: 'lasso', label: 'Lasso', key: 'L', icon: LassoSelect },
     { id: 'text', label: 'Texte', key: 'T', icon: Type },
+    { id: 'sticky', label: 'Post-it', key: 'N', icon: StickyNote },
+    { id: 'connector', label: 'Connecteur', key: 'K', icon: Spline },
+  ];
+  const ARROWS: { id: 'end' | 'both' | 'none'; label: string }[] = [
+    { id: 'end', label: '→' },
+    { id: 'both', label: '↔' },
+    { id: 'none', label: '—' },
   ];
   const BRUSHES: { id: Brush; label: string }[] = [
     { id: 'ballpoint', label: 'Bille' },
@@ -64,7 +75,15 @@
     tool === 'highlighter' ? settings.highlighterPalette : tool === 'pencil' ? settings.pencilPalette : settings.penPalette,
   );
   const currentColor = $derived(
-    tool === 'highlighter' ? styles.highlighter.color : tool === 'pencil' ? styles.pencil.color : tool === 'text' ? styles.text.color : styles.pen.color,
+    tool === 'highlighter'
+      ? styles.highlighter.color
+      : tool === 'pencil'
+        ? styles.pencil.color
+        : tool === 'text'
+          ? styles.text.color
+          : tool === 'connector'
+            ? styles.connector.color
+            : styles.pen.color,
   );
   const widths = $derived(tool === 'highlighter' ? HIGHLIGHTER_WIDTHS : tool === 'pencil' ? PENCIL_WIDTHS : PEN_WIDTHS);
   const currentWidth = $derived(tool === 'highlighter' ? styles.highlighter.width : tool === 'pencil' ? styles.pencil.width : styles.pen.width);
@@ -79,6 +98,7 @@
     if (tool === 'highlighter') styles.highlighter.color = c;
     else if (tool === 'pencil') styles.pencil.color = c;
     else if (tool === 'text') styles.text.color = c;
+    else if (tool === 'connector') styles.connector.color = c;
     else {
       styles.pen.color = c;
       if (tool === 'eraser') tool = 'pen';
@@ -133,6 +153,33 @@
       <button type="button" class="btn small" disabled={!canPaste} title="Coller (Ctrl+V)" onclick={onpaste}>
         <ClipboardPaste size={16} /> Coller
       </button>
+    {:else if tool === 'sticky'}
+      <div class="swatches">
+        {#each STICKY_COLORS as c (c)}
+          <button type="button" class="swatch square" class:selected={styles.sticky.color === c} style:background={c} aria-label="Post-it {c}" onclick={() => (styles.sticky.color = c)}></button>
+        {/each}
+      </div>
+      <span class="sep"></span>
+      {#each TEXT_SIZES.slice(0, 4) as size (size)}
+        <button type="button" class="icon-btn size" class:active={styles.sticky.size === size} title="Taille {size} pt" aria-label="Taille du texte des post-its {size}" onclick={() => (styles.sticky.size = size)}>
+          <span style:font-size="{9 + (size - 11) / 2.2}px">A</span>
+        </button>
+      {/each}
+    {:else if tool === 'connector'}
+      <div class="swatches">
+        {#each ['#5b6474', ...settings.penPalette.slice(1)] as c (c)}
+          <button type="button" class="swatch" class:selected={styles.connector.color === c} style:background={c} aria-label="Couleur {c}" onclick={() => (styles.connector.color = c)}></button>
+        {/each}
+      </div>
+      <span class="sep"></span>
+      {#each CONNECTOR_WIDTHS as w, i (w)}
+        <button type="button" class="icon-btn width" class:active={styles.connector.width === w} aria-label="Épaisseur {i + 1}" title="Épaisseur {w} pt" onclick={() => (styles.connector.width = w)}>
+          <span class="dot" style:width="{4 + i * 4}px" style:height="{4 + i * 4}px" style:background={styles.connector.color}></span>
+        </button>
+      {/each}
+      {#each ARROWS as a (a.id)}
+        <button type="button" class="icon-btn" class:active={styles.connector.arrow === a.id} title="Flèches" aria-label="Flèches {a.label}" onclick={() => (styles.connector.arrow = a.id)}>{a.label}</button>
+      {/each}
     {:else if tool === 'eraser'}
       {#each ERASER_SIZES as size (size)}
         <button type="button" class="icon-btn" class:active={styles.eraser.size === size} title="Taille {size}px" aria-label="Taille de gomme {size}" onclick={() => (styles.eraser.size = size)}>
@@ -241,18 +288,22 @@
     <button type="button" class="icon-btn" disabled={!es.canUndo} title="Annuler (Ctrl+Z, tap à 2 doigts)" aria-label="Annuler" onclick={onundo}><Undo2 size={19} /></button>
     <button type="button" class="icon-btn" disabled={!es.canRedo} title="Rétablir (Ctrl+Maj+Z, tap à 3 doigts)" aria-label="Rétablir" onclick={onredo}><Redo2 size={19} /></button>
     <span class="sep"></span>
-    <button type="button" class="zoom" title="Ajuster à la largeur (0)" onclick={onfit}>{Math.round(es.zoom * 100)} %</button>
-    <span class="page-indicator" title="Page courante">{es.currentPage + 1}/{es.pageCount}</span>
-    <button type="button" class="icon-btn" title="Ajouter une page" aria-label="Ajouter une page" onclick={onaddpage}><FilePlus size={19} /></button>
+    <button type="button" class="zoom" title={infinite ? 'Tout voir (0)' : 'Ajuster à la largeur (0)'} onclick={onfit}>{Math.round(es.zoom * 100)} %</button>
+    {#if !infinite}
+      <span class="page-indicator" title="Page courante">{es.currentPage + 1}/{es.pageCount}</span>
+      <button type="button" class="icon-btn" title="Ajouter une page" aria-label="Ajouter une page" onclick={onaddpage}><FilePlus size={19} /></button>
+    {/if}
     <button type="button" class="icon-btn" class:active={panel === 'search'} aria-pressed={panel === 'search'} title="Rechercher (Ctrl+F)" aria-label="Rechercher" onclick={() => (panel = panel === 'search' ? null : 'search')}>
       <Search size={19} />
     </button>
     <button type="button" class="icon-btn" class:active={panel === 'outline'} aria-pressed={panel === 'outline'} title="Sommaire" aria-label="Sommaire" onclick={() => (panel = panel === 'outline' ? null : 'outline')}>
       <TableOfContents size={19} />
     </button>
-    <button type="button" class="icon-btn" class:active={panel === 'pages'} aria-pressed={panel === 'pages'} title="Pages" aria-label="Panneau des pages" onclick={() => (panel = panel === 'pages' ? null : 'pages')}>
-      <PanelRight size={19} />
-    </button>
+    {#if !infinite}
+      <button type="button" class="icon-btn" class:active={panel === 'pages'} aria-pressed={panel === 'pages'} title="Pages" aria-label="Panneau des pages" onclick={() => (panel = panel === 'pages' ? null : 'pages')}>
+        <PanelRight size={19} />
+      </button>
+    {/if}
     <Menu items={docItems} label="Importer, exporter…" />
   </div>
 </header>
@@ -402,6 +453,9 @@
     .remove {
       display: inline-flex;
     }
+  }
+  .swatch.square {
+    border-radius: 4px;
   }
   .size {
     width: 30px;

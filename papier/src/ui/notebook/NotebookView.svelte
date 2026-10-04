@@ -46,6 +46,8 @@
   let activeHit = $state(-1);
   let outlines = $state.raw<PdfOutline[]>([]);
   let pdfLoading = $state(false);
+  /** Tableau blanc infini (pas de pages). */
+  let infinite = $state(false);
   /** Page à mettre en avant une fois la recherche (venue de la bibliothèque) calculée. */
   let pendingFocusPage: number | undefined = untrack(() => page);
   let container = $state<HTMLDivElement>();
@@ -153,8 +155,10 @@
         textReq = req ? { ...req } : null;
         if (!req || !textarea) return;
         // Synchrone, pendant le geste : nécessaire pour ouvrir le clavier sur iPad.
-        settings.styles.text.color = req.color;
-        settings.styles.text.size = req.fontSize;
+        if (req.kind !== 'sticky') {
+          settings.styles.text.color = req.color;
+          settings.styles.text.size = req.fontSize;
+        }
         textarea.value = req.text;
         textarea.focus();
       });
@@ -167,6 +171,8 @@
         offLink();
       };
       editor = ed;
+      infinite = ed.infinite;
+      if (infinite && panel === 'pages') panel = null;
       if (page !== undefined) ed.scrollToPage(page);
       if (q) {
         searchQuery = q;
@@ -241,7 +247,7 @@
   $effect(() => {
     const { color, size } = settings.styles.text;
     untrack(() => {
-      if (!editor || !textReq || (textReq.color === color && textReq.fontSize === size)) return;
+      if (!editor || !textReq || textReq.kind === 'sticky' || (textReq.color === color && textReq.fontSize === size)) return;
       editor.updateTextEdit({ color, fontSize: size });
       textReq = { ...textReq, color, fontSize: size };
     });
@@ -285,10 +291,14 @@
   }
 
   const docItems = (): MenuItem[] => [
-    { label: 'Insérer un PDF ou des images…', icon: FileInput, action: async () => insertFiles(await pickFiles('.pdf,application/pdf,image/*')) },
+    infinite
+      ? { label: 'Insérer des images…', icon: FileInput, action: insertImage }
+      : { label: 'Insérer un PDF ou des images…', icon: FileInput, action: async () => insertFiles(await pickFiles('.pdf,application/pdf,image/*')) },
     { separator: true },
     { label: 'Exporter en PDF', icon: FileDown, action: () => editor && exportNotebookPdf(editor.doc, true) },
-    { label: 'Exporter en PDF sans annotations', icon: FileDown, action: () => editor && exportNotebookPdf(editor.doc, false) },
+    ...(infinite
+      ? []
+      : [{ label: 'Exporter en PDF sans annotations', icon: FileDown, action: () => editor && exportNotebookPdf(editor.doc, false) }]),
     { label: 'Sauvegarder (.papier)', icon: Archive, action: () => record && exportNotebookArchive($state.snapshot(record)) },
   ];
 
@@ -341,6 +351,8 @@
       if (key === 'p') tool = 'pen';
       else if (key === 'c') tool = 'pencil';
       else if (key === 't') tool = 'text';
+      else if (key === 'n') tool = 'sticky';
+      else if (key === 'k') tool = 'connector';
       else if (key === 'l') tool = 'lasso';
       else if (key === 'h') tool = 'highlighter';
       else if (key === 'e') tool = 'eraser';
@@ -377,6 +389,7 @@
       {docItems}
       oninsertimage={insertImage}
       onsticker={insertSticker}
+      {infinite}
     />
     <div class="workspace">
       <div
@@ -402,7 +415,7 @@
         <TextEditor {editor} req={textReq} {es} bind:textarea />
       {/if}
       {#if editor && panel}
-        <SidePanel bind:tab={panel}>
+        <SidePanel bind:tab={panel} tabs={infinite ? ['outline', 'search'] : undefined}>
           {#if panel === 'pages'}
             <PagesPanel {editor} current={es.currentPage} pageCount={es.pageCount} />
           {:else if panel === 'outline'}

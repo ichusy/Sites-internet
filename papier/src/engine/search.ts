@@ -1,8 +1,8 @@
-import type { ID, PdfTextItem, TextElement } from '../core/model/types';
+import type { ID, PdfTextItem, StickyElement, TextElement } from '../core/model/types';
 import { findRanges, makeSnippet, matchesAll, type Snippet } from '../core/search/match';
 import { applyMat } from './geometry/geom';
 import type { PageLayout } from './layout';
-import { textLines } from './render/draw';
+import { STICKY_PAD, textLines } from './render/draw';
 import { LINE_HEIGHT, canvasMeasure } from './render/text';
 import type { PageScene } from './scene';
 
@@ -35,21 +35,23 @@ function joinItems(items: PdfTextItem[]) {
   return { text, starts };
 }
 
-/** Occurrences dans une zone de texte tapé : mesure exacte des lignes, transformation appliquée. */
+/** Occurrences dans le texte tapé (zones de texte et post-its) : mesure exacte des lignes, transformation appliquée. */
 function textQuads(scene: PageScene, terms: string[]): { quads: Quad[]; texts: string[] } {
   const quads: Quad[] = [];
   const texts: string[] = [];
-  const items = [...scene.items.values()].filter((i) => i.el.type === 'text').sort((a, b) => a.z - b.z);
+  const items = [...scene.items.values()].filter((i) => i.el.type === 'text' || i.el.type === 'sticky').sort((a, b) => a.z - b.z);
   for (const item of items) {
-    const el = item.el as TextElement;
+    const el = item.el as TextElement | StickyElement;
     texts.push(el.text);
+    const ox = el.type === 'sticky' ? el.x + STICKY_PAD : el.x;
+    const oy = el.type === 'sticky' ? el.y + STICKY_PAD : el.y;
     const measure = canvasMeasure(el.fontSize);
     const lh = el.fontSize * LINE_HEIGHT;
     textLines(item).forEach((line, i) => {
       for (const [s, e] of findRanges(line, terms)) {
-        const x0 = el.x + measure(line.slice(0, s));
-        const x1 = el.x + measure(line.slice(0, e));
-        const y0 = el.y + i * lh + (lh - el.fontSize * 1.15) / 2;
+        const x0 = ox + measure(line.slice(0, s));
+        const x1 = ox + measure(line.slice(0, e));
+        const y0 = oy + i * lh + (lh - el.fontSize * 1.15) / 2;
         const y1 = y0 + el.fontSize * 1.15;
         const corners = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]].flatMap(([x, y]) => applyMat(item.matrix!, x, y));
         quads.push(corners as Quad);

@@ -83,3 +83,27 @@ describe('export PDF — étape 2', () => {
     expect(blendModes(pdf, 0)).toContain('/Normal');
   });
 });
+
+describe('export PDF — tableau blanc', () => {
+  it('produit une page à la taille du contenu, avec post-its et connecteur', async () => {
+    const doc = new Y.Doc();
+    initNotebook(doc, 'Carte mentale', { width: 1000, height: 1000, template: { kind: 'dots', spacing: 20 }, infinite: true });
+    const pageId = listPages(doc)[0].id;
+    expect(listPages(doc)[0].infinite).toBe(true);
+    addElements(doc, pageId, [
+      { type: 'sticky', id: 'a', z: 1, bbox: [-500, -100, -340, 60], x: -500, y: -100, width: 160, height: 160, color: '#fff3a3', text: 'Cellule', fontSize: 14 },
+      { type: 'sticky', id: 'b', z: 2, bbox: [200, 300, 360, 460], x: 200, y: 300, width: 160, height: 160, color: '#cbe6ff', text: 'Noyau', fontSize: 14 },
+      {
+        type: 'connector', id: 'c', z: 3, bbox: [-420, -20, 280, 380], color: '#5b6474', width: 1.6, arrow: 'end', dash: 'solid',
+        from: { id: 'a', x: -420, y: -20 }, to: { id: 'b', x: 280, y: 380 },
+      },
+    ]);
+    const pdf = await PDFDocument.load(await exportPdf(doc, { annotations: true }));
+    expect(pdf.getPageCount()).toBe(1);
+    const p = pdf.getPage(0);
+    // Contenu de x = -500 à 360 (et un peu de marge du connecteur) : la page s'y ajuste.
+    expect(p.getWidth()).toBeGreaterThan(860);
+    expect(p.getWidth()).toBeLessThan(1100);
+    expect(p.node.Resources()?.lookupMaybe(PDFName.of('Font'), PDFDict)).toBeTruthy();
+  });
+});

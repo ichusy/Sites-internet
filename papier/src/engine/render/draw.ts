@@ -1,5 +1,6 @@
-import type { ID, ImageElement, PageData, StrokeElement, TextElement } from '../../core/model/types';
-import { isCenterline, isHighlight, itemPath, type RenderItem } from '../scene';
+import type { BBox, ConnectorElement, ID, ImageElement, PageData, StickyElement, StrokeElement, TextElement } from '../../core/model/types';
+import { arrowHead, connectorCurve } from '../geometry/connector';
+import { isCenterline, isHighlight, itemPath, resolveEnd, type ItemLookup, type RenderItem } from '../scene';
 import { pencilPattern } from './pencil';
 import {
   DOT_COLOR, LABEL_COLOR, LINE_COLOR, MARGIN_COLOR, PAPER_COLOR, STRUCTURE_COLOR, templatePrimitives, type Segment,
@@ -7,6 +8,14 @@ import {
 import { BASELINE, LINE_HEIGHT, TEXT_FONT, canvasMeasure, layoutText } from './text';
 
 export { PAPER_COLOR };
+
+/** Marge intérieure d'un post-it (points). */
+export const STICKY_PAD = 12;
+export const STICKY_TEXT_COLOR = '#1f2430';
+export const BOARD_COLOR = '#fbfbf8';
+const BOARD_DOT = '#c4cad6';
+
+export type { ItemLookup };
 
 /** Ressources asynchrones (images, fonds de page) fournies par le moteur. */
 export interface RenderResources {
@@ -89,11 +98,76 @@ function drawStroke(ctx: CanvasRenderingContext2D, el: StrokeElement, path: Path
   }
 }
 
-/** Lignes d'une zone de texte, mises en cache sur l'élément de rendu. */
+/** Lignes d'une zone de texte ou d'un post-it, mises en cache sur l'élément de rendu. */
 export function textLines(item: RenderItem): string[] {
-  const el = item.el as TextElement;
-  item.lines ??= layoutText(el.text, el.width, canvasMeasure(el.fontSize));
+  const el = item.el as TextElement | StickyElement;
+  const width = el.type === 'sticky' ? el.width - STICKY_PAD * 2 : el.width;
+  item.lines ??= layoutText(el.text, width, canvasMeasure(el.fontSize));
   return item.lines;
+}
+
+function drawSticky(ctx: CanvasRenderingContext2D, item: RenderItem) {
+  const el = item.el as StickyElement;
+  ctx.transform(...item.matrix!);
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.16)';
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetY = 2;
+  ctx.fillStyle = el.color;
+  ctx.fillRect(el.x, el.y, el.width, el.height);
+  ctx.restore();
+  // Léger dégradé en bas, comme un papier qui se décolle.
+  ctx.fillStyle = 'rgba(0,0,0,0.04)';
+  ctx.fillRect(el.x, el.y + el.height * 0.82, el.width, el.height * 0.18);
+  ctx.fillStyle = STICKY_TEXT_COLOR;
+  ctx.font = `${el.fontSize}px ${TEXT_FONT}`;
+  ctx.textBaseline = 'alphabetic';
+  const lh = el.fontSize * LINE_HEIGHT;
+  textLines(item).forEach((line, i) => ctx.fillText(line, el.x + STICKY_PAD, el.y + STICKY_PAD + i * lh + el.fontSize * BASELINE));
+}
+
+function drawConnector(ctx: CanvasRenderingContext2D, item: RenderItem, lookup?: ItemLookup | null) {
+  const el = item.el as ConnectorElement;
+  const c = connectorCurve(resolveEnd(el.from, lookup), resolveEnd(el.to, lookup));
+  ctx.strokeStyle = el.color;
+  ctx.fillStyle = el.color;
+  ctx.lineWidth = el.width;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  const head = Math.max(8, el.width * 4);
+  if (el.dash === 'dashed') ctx.setLineDash([el.width * 4, el.width * 3]);
+  else if (el.dash === 'dotted') ctx.setLineDash([0.01, el.width * 2.5]);
+  ctx.beginPath();
+  ctx.moveTo(...c.p0);
+  ctx.bezierCurveTo(...c.c1, ...c.c2, ...c.p1);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  const heads = el.arrow === 'both' ? [arrowHead(c.p1, c.c2, head), arrowHead(c.p0, c.c1, head)] : el.arrow === 'end' ? [arrowHead(c.p1, c.c2, head)] : [];
+  for (const [a, b, d] of heads) {
+    ctx.beginPath();
+    ctx.moveTo(...a);
+    ctx.lineTo(...b);
+    ctx.lineTo(...d);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+/**
+ * Fond d'un tableau blanc infini sur le rectangle visible (repère de la page) :
+ * papier uni et points dont l'espacement double quand on dézoome (jamais moins de 12 px).
+ */
+export function drawBoardBackground(ctx: CanvasRenderingContext2D, page: PageData, rect: BBox, scale: number) {
+  const [x0, y0, x1, y1] = rect;
+  ctx.fillStyle = BOARD_COLOR;
+  ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+  let step = page.template.spacing > 0 ? page.template.spacing : 20;
+  while (step * scale < 12) step *= 2;
+  ctx.fillStyle = BOARD_DOT;
+  const r = Math.max(1, 1.6 / scale) * Math.min(2, step / 20);
+  for (let y = Math.floor(y0 / step) * step; y <= y1; y += step) {
+    for (let x = Math.floor(x0 / step) * step; x <= x1; x += step) ctx.fillRect(x - r / 2, y - r / 2, r, r);
+  }
 }
 
 function drawText(ctx: CanvasRenderingContext2D, item: RenderItem) {
@@ -122,11 +196,19 @@ function drawImage(ctx: CanvasRenderingContext2D, item: RenderItem, res?: Render
 }
 
 /** Dessine un élément dans le repère de la page. */
-export function drawItem(ctx: CanvasRenderingContext2D, item: RenderItem, res?: RenderResources | null, path?: Path2D) {
+export function drawItem(
+  ctx: CanvasRenderingContext2D,
+  item: RenderItem,
+  res?: RenderResources | null,
+  path?: Path2D,
+  lookup?: ItemLookup | null,
+) {
   const el = item.el;
   ctx.save();
   if (el.type === 'stroke') drawStroke(ctx, el, path ?? itemPath(item));
   else if (el.type === 'text') drawText(ctx, item);
+  else if (el.type === 'sticky') drawSticky(ctx, item);
+  else if (el.type === 'connector') drawConnector(ctx, item, lookup);
   else drawImage(ctx, item, res);
   ctx.restore();
 }
@@ -141,8 +223,14 @@ export function drawPageContent(
   items: RenderItem[],
   scale: number,
   res?: RenderResources | null,
+  lookup?: ItemLookup | null,
 ) {
   drawTemplate(ctx, page, scale, res);
-  for (const item of items) if (isHighlight(item.el)) drawItem(ctx, item, res);
-  for (const item of items) if (!isHighlight(item.el)) drawItem(ctx, item, res);
+  drawItems(ctx, items, res, lookup);
+}
+
+/** Surligneurs d'abord (derrière l'encre), puis le reste dans l'ordre z. */
+export function drawItems(ctx: CanvasRenderingContext2D, items: RenderItem[], res?: RenderResources | null, lookup?: ItemLookup | null) {
+  for (const item of items) if (isHighlight(item.el)) drawItem(ctx, item, res, undefined, lookup);
+  for (const item of items) if (!isHighlight(item.el)) drawItem(ctx, item, res, undefined, lookup);
 }

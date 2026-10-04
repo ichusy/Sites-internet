@@ -1,6 +1,7 @@
 import RBush from 'rbush';
 import { decodePoints } from '../core/model/pointCodec';
-import type { BBox, ID, Mat2D, PageData, PageElement, StrokeElement } from '../core/model/types';
+import type { BBox, BoxElement, ConnectorEnd, ID, Mat2D, PageData, PageElement, StrokeElement } from '../core/model/types';
+import { connectorCurve, sampleCurve, type ResolvedEnd } from './geometry/connector';
 import { applyMat, IDENTITY, pointsBBox, transformPoints } from './geometry/geom';
 import { centerlinePath, outlinePath, polylinePath } from './ink/brushes';
 
@@ -31,7 +32,12 @@ interface TreeEntry {
   item: RenderItem;
 }
 
+export function isBox(el: PageElement): el is BoxElement {
+  return el.type === 'text' || el.type === 'image' || el.type === 'sticky';
+}
+
 export function strokeHalfWidth(el: PageElement): number {
+  if (el.type === 'connector') return el.width / 2;
   if (el.type !== 'stroke') return 0;
   if (el.tool === 'highlighter' || el.shape || el.dash !== 'solid') return el.width / 2;
   if (el.tool === 'pencil') return el.width * 0.6;
@@ -44,11 +50,42 @@ export function isCenterline(el: StrokeElement) {
   return el.tool === 'highlighter' || el.dash !== 'solid' || !!el.shape;
 }
 
-export function makeItem(el: PageElement): RenderItem {
+/** Retrouve un élément de la page (extrémités des connecteurs). */
+export type ItemLookup = (id: ID) => RenderItem | undefined;
+
+/** Boîte serrée d'un élément posé dans un rectangle (sans la marge du tri spatial). */
+function boxOf(item: RenderItem): BBox {
+  const p = item.pts;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (let k = 0; k < 4; k++) {
+    minX = Math.min(minX, p[k * 4]);
+    maxX = Math.max(maxX, p[k * 4]);
+    minY = Math.min(minY, p[k * 4 + 1]);
+    maxY = Math.max(maxY, p[k * 4 + 1]);
+  }
+  return [minX, minY, maxX, maxY];
+}
+
+/** Extrémité réelle d'un connecteur : boîte de l'élément accroché s'il existe encore. */
+export function resolveEnd(end: ConnectorEnd, lookup?: ItemLookup | null): ResolvedEnd {
+  const target = end.id ? lookup?.(end.id) : undefined;
+  if (!target || target.el.type === 'connector') return { x: end.x, y: end.y };
+  return { x: end.x, y: end.y, box: target.el.type === 'stroke' ? target.bbox : boxOf(target) };
+}
+
+/**
+ * Élément prêt à dessiner. Pour un connecteur, `lookup` permet de calculer son tracé exact
+ * (accroché aux boîtes des éléments reliés) ; sans lui, les dernières positions connues servent.
+ */
+export function makeItem(el: PageElement, lookup?: ItemLookup | null): RenderItem {
   if (el.type === 'stroke') {
     let pts = decodePoints(el.points);
     if (el.transform) pts = transformPoints(pts, el.transform);
     return { id: el.id, z: el.z, el, pts, bbox: pointsBBox(pts, strokeHalfWidth(el) + 1) };
+  }
+  if (el.type === 'connector') {
+    const pts = sampleCurve(connectorCurve(resolveEnd(el.from, lookup), resolveEnd(el.to, lookup)));
+    return { id: el.id, z: el.z, el, pts, bbox: pointsBBox(pts, el.width + 12) };
   }
   const m = el.transform ?? IDENTITY;
   const corners: [number, number][] = [
@@ -104,8 +141,10 @@ export class PageScene {
     this.entries.clear();
     this.tree.clear();
     const bulk: TreeEntry[] = [];
-    for (const el of elements) {
-      const item = makeItem(el);
+    // Connecteurs en dernier : leur tracé dépend des éléments qu'ils relient.
+    const all = [...elements].sort((a, b) => Number(a.type === 'connector') - Number(b.type === 'connector'));
+    for (const el of all) {
+      const item = makeItem(el, this.lookup);
       this.items.set(item.id, item);
       const entry = this.entryFor(item);
       this.entries.set(item.id, entry);
@@ -117,10 +156,30 @@ export class PageScene {
     this.markFull();
   }
 
+  private lookup: ItemLookup = (id) => this.items.get(id);
+
+  /** Recalcule le tracé des connecteurs accrochés à `id` (élément déplacé, modifié ou supprimé). */
+  private refreshConnectors(id: ID) {
+    for (const item of [...this.items.values()]) {
+      const el = item.el;
+      if (el.type !== 'connector' || (el.from.id !== id && el.to.id !== id)) continue;
+      this.removeInternal(el.id);
+      this.insertItem(makeItem(el, this.lookup));
+    }
+  }
+
+  private insertItem(item: RenderItem) {
+    this.items.set(item.id, item);
+    const entry = this.entryFor(item);
+    this.entries.set(item.id, entry);
+    this.tree.insert(entry);
+    this.sortedCache = null;
+  }
+
   upsert(el: PageElement) {
     const existed = this.items.has(el.id);
     if (existed) this.removeInternal(el.id);
-    const item = makeItem(el);
+    const item = makeItem(el, this.lookup);
     this.items.set(item.id, item);
     const entry = this.entryFor(item);
     this.entries.set(item.id, entry);
@@ -135,11 +194,13 @@ export class PageScene {
       this.markFull();
     }
     this.maxZ = Math.max(this.maxZ, item.z);
+    if (existed && el.type !== 'connector') this.refreshConnectors(el.id);
   }
 
   remove(id: ID) {
     if (!this.items.has(id)) return;
     this.removeInternal(id);
+    this.refreshConnectors(id);
     this.markFull();
     this.version++;
   }

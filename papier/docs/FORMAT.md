@@ -75,6 +75,8 @@ pages      Y.Map<string, Y.Map>     une Y.Map par page :
                           spacing: number,
                           source?: { assetId, kind: "image"|"pdf", pageIndex, templateId?, name? } }  // kind = custom
              background { kind: "pdf", assetId, pageIndex } | { kind: "image", assetId }   (optionnel)
+             infinite   boolean (optionnel) : tableau blanc sans bords ; width/height
+                        n'y sont qu'indicatifs, le carnet n'a alors qu'une page
              elements   Y.Map<string, Element>
 ```
 
@@ -134,6 +136,41 @@ la ligne *i* à `y + i·1,3·fontSize + fontSize`.
   "transform": [a,b,c,d,e,f], "bbox": […]
 }
 ```
+
+### Élément `sticky` (post-it)
+
+```jsonc
+{
+  "type": "sticky", "id": "…", "z": …,
+  "x": 0, "y": 0, "width": 160, "height": 160,   // carré de papier (repère local)
+  "color": "#fff3a3",                            // fond
+  "text": "Cellule eucaryote", "fontSize": 14,   // texte en #1f2430, marge intérieure 12 pt
+  "transform": [a,b,c,d,e,f], "bbox": […]
+}
+```
+
+Mise en page du texte comme pour `text`, sur une largeur `width − 24`, à partir de
+`(x + 12, y + 12)`. `height` vaut au moins `width` et grandit avec le texte.
+
+### Élément `connector`
+
+```jsonc
+{
+  "type": "connector", "id": "…", "z": …,
+  "from": { "id": "<élément>", "x": 120, "y": 80 },  // id optionnel : extrémité accrochée
+  "to":   { "x": 400, "y": 260 },                   // sans id : extrémité libre
+  "color": "#5b6474", "width": 1.6,
+  "arrow": "end" | "both" | "none",
+  "dash": "solid" | "dashed" | "dotted",
+  "bbox": […]
+}
+```
+
+Une extrémité accrochée suit son élément : à l'affichage, la courbe part du milieu
+du côté de la boîte (transformée) de l'élément qui fait face à l'autre extrémité,
+à 6 pt du bord, et forme une Bézier cubique dont les tangentes sont
+perpendiculaires à ces côtés. `x`, `y` gardent la dernière position connue du
+centre de l'élément (repli si l'élément disparaît, et lecture par d'autres outils).
 
 **Encodage de `points`** : suite de points de 16 octets, chacun composé de
 4 flottants IEEE-754 32 bits **little-endian** :
@@ -197,3 +234,6 @@ d'une migration automatique à l'ouverture du carnet.
 - **v1** : traits (stylo, surligneur), fonds PDF/images.
 - **v2** : crayon, formes, texte, images/autocollants, modèles Cornell, semainier
   et importés. Un carnet v1 se lit tel quel en v2 (champs uniquement ajoutés).
+- **v2 (étape 4)** : éléments `sticky` et `connector`, page `infinite`. Ajouts
+  uniquement, sans changement de `schemaVersion` : les carnets existants se lisent
+  tels quels.

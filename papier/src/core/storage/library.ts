@@ -1,7 +1,7 @@
 import { db } from './db';
 import { newId } from '../model/ids';
 import { createNotebookDoc, deleteNotebookDoc } from './notebookStore';
-import type { CoverSpec, FolderRecord, ID, NotebookRecord, PageData, TemplateRef } from '../model/types';
+import type { CoverSpec, FolderRecord, ID, NotebookKind, NotebookRecord, PageData, TemplateRef } from '../model/types';
 
 // ── Dossiers ─────────────────────────────────────────────
 
@@ -54,6 +54,8 @@ export interface NewNotebookOptions {
   template: TemplateRef;
   /** Pages initiales (import) ; sinon une page vierge au format `paper`. */
   pages?: Omit<PageData, 'id'>[];
+  /** 'canvas' : tableau blanc infini (une seule page sans bords). */
+  kind?: NotebookKind;
 }
 
 export async function createNotebook(opts: NewNotebookOptions): Promise<NotebookRecord> {
@@ -62,7 +64,7 @@ export async function createNotebook(opts: NewNotebookOptions): Promise<Notebook
     id: newId(),
     folderId: opts.folderId,
     title: opts.title.trim() || 'Sans titre',
-    kind: 'paged',
+    kind: opts.kind ?? 'paged',
     cover: opts.cover,
     favorite: false,
     tags: [],
@@ -73,7 +75,8 @@ export async function createNotebook(opts: NewNotebookOptions): Promise<Notebook
     updatedAt: now,
     openedAt: 0,
   };
-  record.pageCount = await createNotebookDoc(record, { pages: opts.pages });
+  const board: Omit<PageData, 'id'>[] = [{ width: 1000, height: 1000, template: { kind: 'dots', spacing: 20 }, infinite: true }];
+  record.pageCount = await createNotebookDoc(record, { pages: record.kind === 'canvas' ? board : opts.pages });
   await db.notebooks.add(record);
   return record;
 }

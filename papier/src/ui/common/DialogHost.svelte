@@ -18,6 +18,7 @@
   let coverColor = $state(COVER_COLORS[1]);
   let coverPattern = $state<CoverPattern>('plain');
   let paperId = $state('a4');
+  let nbKind = $state<'paged' | 'canvas'>('paged');
   let templateKind = $state<TemplateKind>('lined');
   /** Modèle importé choisi (templateKind = 'custom'). */
   let customId = $state<ID | null>(null);
@@ -33,6 +34,7 @@
     if (r.kind === 'prompt') text = r.value;
     if (r.kind === 'notebook') {
       nbTitle = r.record?.title ?? '';
+      nbKind = r.record?.kind ?? 'paged';
       coverColor = r.record?.cover.color ?? COVER_COLORS[Math.floor(Math.random() * 8)];
       coverPattern = r.record?.cover.pattern ?? 'plain';
       paperId = 'a4';
@@ -101,6 +103,7 @@
         const paper = PAPER_FORMATS.find((p) => p.id === paperId) ?? PAPER_FORMATS[0];
         r.resolve({
           title: nbTitle.trim() || 'Sans titre',
+          kind: r.record?.kind ?? nbKind,
           cover: { color: coverColor, pattern: coverPattern },
           paper: r.record?.paper ?? customPaper() ?? { width: paper.width, height: paper.height },
           template: chosenTemplate(r.record?.template),
@@ -194,6 +197,15 @@
             </div>
           </div>
           {#if !req.record}
+            <div class="field">
+              Type
+              <div class="row">
+                <button type="button" class="chip" class:selected={nbKind === 'paged'} onclick={() => (nbKind = 'paged')}>Carnet de pages</button>
+                <button type="button" class="chip" class:selected={nbKind === 'canvas'} onclick={() => (nbKind = 'canvas')}>Tableau blanc infini</button>
+              </div>
+            </div>
+          {/if}
+          {#if !req.record && nbKind === 'paged'}
             <label class="field">
               Format
               <select bind:value={paperId}>
@@ -203,6 +215,7 @@
               </select>
             </label>
           {/if}
+          {#if nbKind === 'paged'}
           <div class="field">
             Modèle des nouvelles pages
             <div class="row">
@@ -218,6 +231,9 @@
               <button type="button" class="chip add-chip" onclick={addCustom}>+ Importer un modèle…</button>
             </div>
           </div>
+          {:else}
+            <p class="hint">Une surface sans bords pour cartes mentales et schémas : post-its, connecteurs, dessin, texte et images.</p>
+          {/if}
         </div>
       </div>
       {#snippet actions()}
@@ -228,6 +244,11 @@
 {/if}
 
 <style>
+  .hint {
+    margin: 0;
+    font-size: 13px;
+    color: var(--muted);
+  }
   .message {
     margin: 0;
     color: var(--muted);

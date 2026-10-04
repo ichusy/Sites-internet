@@ -46,6 +46,7 @@ function createPageMap(page: PageData): PageMap {
   map.set('height', page.height);
   map.set('template', { ...page.template });
   if (page.background) map.set('background', { ...page.background });
+  if (page.infinite) map.set('infinite', true);
   map.set('elements', new Y.Map<PageElement>());
   return map;
 }
@@ -59,6 +60,7 @@ export function readPage(map: PageMap): PageData {
   };
   const bg = map.get('background') as PageData['background'];
   if (bg) page.background = bg;
+  if (map.get('infinite')) page.infinite = true;
   return page;
 }
 

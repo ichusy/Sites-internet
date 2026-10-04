@@ -2,6 +2,8 @@ import type { TextElement } from '../../core/model/types';
 import { applyMat, invertMat } from '../geometry/geom';
 import { pageAt } from '../layout';
 import type { Tool, ToolContext, ToolInput } from './types';
+import { topItemAt } from './boxHit';
+import { stickyEditRequest } from './StickyTool';
 
 /** Largeur par défaut d'une nouvelle zone de texte (points). */
 const DEFAULT_WIDTH = 320;
@@ -33,6 +35,13 @@ export class TextTool implements Tool {
     if (!page) return;
     const lx = s.x - page.x;
     const ly = s.y - page.y;
+
+    const scene = this.ctx.scene(page.id);
+    const sticky = scene && topItemAt(scene, lx, ly, (it) => it.el.type === 'sticky');
+    if (sticky?.el.type === 'sticky') {
+      this.ctx.editText(stickyEditRequest(page.id, sticky.el));
+      return;
+    }
 
     const existing = this.hit(page.id, lx, ly);
     if (existing) {

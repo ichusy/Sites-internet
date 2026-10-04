@@ -8,7 +8,11 @@ import type { ID, ImageElement, Mat2D, PageBackground, PageData, PageElement, Te
 import type { OpenNotebook } from '../core/storage/notebookStore';
 import { multiplyMat, translateMat } from './geometry/geom';
 import { PointerRouter, type FingerDrawing } from './input/PointerRouter';
-import { layoutPages, type PageLayout } from './layout';
+import { containsPoint, intersectsRect, layoutPages, type PageLayout } from './layout';
+import { applyMat } from './geometry/geom';
+import { MIN_ZOOM } from './Viewport';
+import { STICKY_PAD } from './render/draw';
+import type { StickyElement } from '../core/model/types';
 import { BackgroundStore } from './render/backgrounds';
 import { Renderer } from './render/Renderer';
 import { PageScene, makeItem } from './scene';
@@ -16,6 +20,8 @@ import { EraserTool } from './tools/EraserTool';
 import { InkTool } from './tools/InkTool';
 import { LassoTool } from './tools/LassoTool';
 import { TextTool } from './tools/TextTool';
+import { StickyTool } from './tools/StickyTool';
+import { ConnectorTool } from './tools/ConnectorTool';
 import type { Selection, TextEditRequest, Tool, ToolContext, ToolName, ToolStyles } from './tools/types';
 import { canvasMeasure, layoutText, textBlockHeight } from './render/text';
 import { parseQuery } from '../core/search/match';
@@ -140,10 +146,13 @@ export class Editor {
       eraser: new EraserTool(ctx),
       lasso: this.lasso,
       text: new TextTool(ctx),
+      sticky: new StickyTool(ctx),
+      connector: new ConnectorTool(ctx),
     };
     this.renderer.overlay = (c) => {
       this.drawSearchOverlay(c);
       if (this.tool === 'lasso') this.drawLinkOverlay(c);
+      if (this.tool === 'connector') (this.tools.connector as ConnectorTool).drawOverlay(c);
       this.lasso.drawOverlay(c);
     };
 
@@ -266,7 +275,8 @@ export class Editor {
     if (!req.id && performance.now() - this.lastTextCommit < 350) return;
     this.commitTextEdit();
     this.editing = req;
-    if (req.id) this.scenes.get(req.pageId)?.setHidden([req.id]);
+    // Le post-it reste affiché (l'éditeur recouvre sa zone de texte) ; une zone de texte est masquée.
+    if (req.id && req.kind !== 'sticky') this.scenes.get(req.pageId)?.setHidden([req.id]);
     this.renderer.invalidate();
     for (const fn of this.textListeners) fn(req);
   }
@@ -291,6 +301,25 @@ export class Editor {
     const value = (text ?? req.text).replace(/\s+$/, '');
     const scene = this.scenes.get(req.pageId);
     scene?.setHidden([]);
+    if (req.kind === 'sticky' && req.id) {
+      // Post-it : il reste en place même vide ; sa hauteur suit le texte.
+      const id = req.id;
+      const old = scene?.items.get(id)?.el;
+      if (old?.type === 'sticky' && old.text !== value) {
+        const lines = layoutText(value, old.width - STICKY_PAD * 2, canvasMeasure(old.fontSize));
+        const height = Math.max(old.width, textBlockHeight(lines.length, old.fontSize) + STICKY_PAD * 2);
+        const next: StickyElement = { ...old, text: value, height };
+        next.bbox = makeItem(next).bbox;
+        this.transact((doc) => {
+          addElements(doc, req.pageId, [next]);
+          const els = pageElements(doc, req.pageId);
+          this.syncConnectors(req.pageId, new Map([[id, next]]), (c) => els?.set(c.id, c));
+        });
+      }
+      this.renderer.invalidate();
+      for (const fn of this.textListeners) fn(null);
+      return;
+    }
     const lines = layoutText(value, req.width, canvasMeasure(req.fontSize));
     const height = textBlockHeight(lines.length, req.fontSize);
     if (req.id) {
@@ -326,9 +355,11 @@ export class Editor {
     const page = this.layout.pages[this.currentPageIndex()];
     if (!page) return;
     const vis = this.viewport.visibleWorld();
-    const cx = Math.min(Math.max((vis[0] + vis[2]) / 2, page.x), page.x + page.width) - page.x;
-    const cy = Math.min(Math.max((vis[1] + vis[3]) / 2, page.y), page.y + page.height) - page.y;
-    const width = opts.width ?? Math.min(page.width * 0.6, naturalWidth * 0.75);
+    const midX = (vis[0] + vis[2]) / 2;
+    const midY = (vis[1] + vis[3]) / 2;
+    const cx = (page.infinite ? midX : Math.min(Math.max(midX, page.x), page.x + page.width)) - page.x;
+    const cy = (page.infinite ? midY : Math.min(Math.max(midY, page.y), page.y + page.height)) - page.y;
+    const width = opts.width ?? Math.min(page.infinite ? 360 : page.width * 0.6, naturalWidth * 0.75);
     const height = (width * naturalHeight) / naturalWidth;
     const el: ImageElement = {
       type: 'image', id: newId(), z: nextZ(), bbox: [0, 0, 0, 0], assetId,
@@ -401,18 +432,58 @@ export class Editor {
     this.transact((doc) => {
       const els = pageElements(doc, sel.pageId);
       if (!els) return;
+      const changed = new Map<ID, PageElement>();
       for (const id of sel.ids) {
         const el = els.get(id);
-        if (el) els.set(id, fn(el));
+        if (!el) continue;
+        const next = fn(el);
+        els.set(id, next);
+        changed.set(id, next);
       }
+      this.syncConnectors(sel.pageId, changed, (c) => els.set(c.id, c));
     });
     this.emitSelection();
+  }
+
+  /**
+   * Met à jour la position mémorisée des extrémités des connecteurs accrochés aux éléments
+   * modifiés (le tracé exact suit déjà les éléments ; ceci garde le tri spatial juste).
+   */
+  private syncConnectors(pageId: ID, changed: Map<ID, PageElement>, write: (c: PageElement) => void) {
+    const scene = this.scenes.get(pageId);
+    if (!scene) return;
+    const centerOf = (el: PageElement): [number, number] => {
+      const b = makeItem(el).bbox;
+      return [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
+    };
+    for (const item of scene.items.values()) {
+      const el = item.el;
+      if (el.type !== 'connector' || changed.has(el.id)) continue;
+      const from = el.from.id && changed.get(el.from.id);
+      const to = el.to.id && changed.get(el.to.id);
+      if (!from && !to) continue;
+      const next = { ...el, from: { ...el.from }, to: { ...el.to } };
+      if (from) [next.from.x, next.from.y] = centerOf(from);
+      if (to) [next.to.x, next.to.y] = centerOf(to);
+      next.bbox = makeItem(next).bbox;
+      write(next);
+    }
   }
 
   private transformSelection(m: Mat2D, widthScale: number) {
     this.updateSelected((el) => {
       // Traits : les points sont transformés, l'épaisseur suit l'agrandissement.
       // Texte et images : la matrice porte déjà l'échelle.
+      if (el.type === 'connector') {
+        // Connecteur : ses extrémités libres suivent ; les extrémités accrochées restent accrochées.
+        const move = (e: typeof el.from) => {
+          const [x, y] = applyMat(m, e.x, e.y);
+          return { ...e, x, y };
+        };
+        const next = { ...el, from: move(el.from), to: move(el.to), width: el.width * widthScale };
+        next.bbox = makeItem(next).bbox;
+        return next;
+      }
       const next = { ...el, transform: el.transform ? multiplyMat(m, el.transform) : m } as PageElement;
       if (next.type === 'stroke') next.width = el.type === 'stroke' ? el.width * widthScale : next.width;
       next.bbox = makeItem(next).bbox;
@@ -427,7 +498,14 @@ export class Editor {
   deleteSelection() {
     const sel = this.sel;
     if (!sel) return;
-    this.transact((doc) => removeElements(doc, sel.pageId, sel.ids));
+    // Supprimer un élément supprime aussi les connecteurs qui y sont accrochés.
+    const gone = new Set(sel.ids);
+    const scene = this.scenes.get(sel.pageId);
+    for (const item of scene?.items.values() ?? []) {
+      const el = item.el;
+      if (el.type === 'connector' && ((el.from.id && gone.has(el.from.id)) || (el.to.id && gone.has(el.to.id)))) gone.add(el.id);
+    }
+    this.transact((doc) => removeElements(doc, sel.pageId, gone));
     this.setSelection(null);
   }
 
@@ -523,7 +601,7 @@ export class Editor {
 
   /** Suit le lien PDF situé en (x, y) (coordonnées monde), s'il y en a un. */
   followLink(x: number, y: number): boolean {
-    const l = this.layout.pages.find((p) => x >= p.x && x <= p.x + p.width && y >= p.y && y <= p.y + p.height);
+    const l = this.layout.pages.find((p) => containsPoint(p, x, y));
     const bg = l && this.scenes.get(l.id)?.page.background;
     if (!l || bg?.kind !== 'pdf') return false;
     const lx = x - l.x, ly = y - l.y;
@@ -559,7 +637,10 @@ export class Editor {
     if (!hit) return;
     this.activeHit = i;
     const l = this.layout.pages.find((p) => p.id === hit.pageId);
-    if (l) {
+    if (l?.infinite && hit.quads.length) {
+      const q = hit.quads[0];
+      this.centerOn(l.x + (q[0] + q[4]) / 2, l.y + (q[1] + q[5]) / 2);
+    } else if (l) {
       const ys = hit.quads.flatMap((q) => [q[1], q[3], q[5], q[7]]);
       const top = ys.length ? Math.min(...ys) : 0;
       const visible = this.viewport.height / this.viewport.zoom;
@@ -582,7 +663,7 @@ export class Editor {
     const [vx0, vy0, vx1, vy1] = this.viewport.visibleWorld();
     this.searchHits.forEach((hit, i) => {
       const l = this.layout.pages.find((p) => p.id === hit.pageId);
-      if (!l || l.y > vy1 || l.y + l.height < vy0 || l.x > vx1 || l.x + l.width < vx0) return;
+      if (!l || !intersectsRect(l, vx0, vy0, vx1, vy1)) return;
       this.pageTransform(c, l);
       c.fillStyle = i === this.activeHit ? 'rgba(255, 150, 20, 0.55)' : 'rgba(255, 214, 10, 0.45)';
       for (const q of hit.quads) {
@@ -701,6 +782,38 @@ export class Editor {
 
   // ── Vue ─────────────────────────────────────────────────
 
+  /** Carnet « tableau blanc » (page unique sans bords) ? */
+  get infinite(): boolean {
+    return !!this.layout.pages[0]?.infinite;
+  }
+
+  private clampView() {
+    if (this.layout.bounds) this.viewport.clamp(this.layout.bounds);
+  }
+
+  /** Centre la vue sur un point du monde. */
+  centerOn(x: number, y: number) {
+    this.viewport.panX = this.viewport.width / 2 - x * this.viewport.zoom;
+    this.viewport.panY = this.viewport.height / 2 - y * this.viewport.zoom;
+    this.onViewportChanged();
+  }
+
+  /** Tableau blanc : zoom et cadrage pour voir tout le contenu. */
+  fitContent() {
+    const l = this.layout.pages[0];
+    const scene = l && this.scenes.get(l.id);
+    const boxes = scene ? [...scene.items.values()].map((i) => i.bbox) : [];
+    const vp = this.viewport;
+    if (!l || !boxes.length) {
+      vp.zoom = 1;
+      this.centerOn(0, 0);
+      return;
+    }
+    const [x0, y0, x1, y1] = boxes.reduce((a, b) => [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[2], b[2]), Math.max(a[3], b[3])]);
+    vp.zoom = Math.max(vp.minZoom, Math.min(2, (vp.width - 80) / (x1 - x0 || 1), (vp.height - 80) / (y1 - y0 || 1)));
+    this.centerOn(l.x + (x0 + x1) / 2, l.y + (y0 + y1) / 2);
+  }
+
   currentPageIndex(): number {
     const pages = this.layout.pages;
     if (!pages.length) return 0;
@@ -720,13 +833,14 @@ export class Editor {
   /** Fait défiler jusqu'à la page `index` ; `top` (points) vise une hauteur précise dans la page. */
   scrollToPage(index: number, top?: number) {
     const l = this.layout.pages[index];
-    if (!l) return;
+    if (!l || l.infinite) return;
     this.viewport.panY = top ? TOP_MARGIN * 3 - (l.y + top) * this.viewport.zoom : TOP_MARGIN - l.y * this.viewport.zoom;
     this.onViewportChanged();
   }
 
-  /** Ajuste le zoom à la largeur de la page courante et la centre. */
+  /** Ajuste le zoom à la largeur de la page courante et la centre (tableau blanc : tout afficher). */
   fitWidth() {
+    if (this.infinite) return this.fitContent();
     const current = this.currentPageIndex();
     const page = this.layout.pages[current];
     const width = page?.width ?? Math.max(...this.layout.pages.map((p) => p.width), 1);
@@ -742,7 +856,7 @@ export class Editor {
   }
 
   private onViewportChanged() {
-    this.viewport.clamp(this.layout.bounds);
+    this.clampView();
     this.renderer.viewportChanged();
     this.emitState();
     if (this.sel) this.emitSelection();
@@ -813,11 +927,13 @@ export class Editor {
 
   private relayout() {
     this.layout = layoutPages(listPages(this.nb.doc));
+    // Tableau blanc : on peut dézoomer bien plus loin pour avoir une vue d'ensemble.
+    this.viewport.minZoom = this.infinite ? 0.08 : MIN_ZOOM;
   }
 
   private onOrderEvent = () => {
     this.relayout();
-    this.viewport.clamp(this.layout.bounds);
+    this.clampView();
     this.renderer.invalidate();
     this.emitState();
   };
@@ -860,7 +976,7 @@ export class Editor {
 
     if (relayout) {
       this.relayout();
-      this.viewport.clamp(this.layout.bounds);
+      this.clampView();
       this.emitState();
     }
     this.renderer.invalidate();

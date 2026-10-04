@@ -55,6 +55,7 @@
   style:line-height={LINE_HEIGHT}
   style:font-family={TEXT_FONT}
   style:color={req?.color}
+  style:background={req?.background ?? 'transparent'}
   style:transform="rotate({frame?.angle ?? 0}rad)"
   {oninput}
   {onkeydown}

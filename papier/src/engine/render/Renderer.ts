@@ -3,7 +3,7 @@ import type { PageLayout } from '../layout';
 import type { PageScene, RenderItem } from '../scene';
 import type { Viewport } from '../Viewport';
 import type { BackgroundStore } from './backgrounds';
-import { drawItem, drawPageContent } from './draw';
+import { drawBoardBackground, drawItem, drawItems, drawPageContent } from './draw';
 
 /** Taille maximale (en pixels) du cache bitmap d'une page ; au-delà, rendu vectoriel direct. */
 const MAX_CACHE_PIXELS = 6_000_000;
@@ -127,10 +127,25 @@ export class Renderer {
     const visible = new Set<ID>();
 
     for (const l of this.src.layouts()) {
-      if (l.x > vx1 || l.x + l.width < vx0 || l.y > vy1 || l.y + l.height < vy0) continue;
+      if (!l.infinite && (l.x > vx1 || l.x + l.width < vx0 || l.y > vy1 || l.y + l.height < vy0)) continue;
       const scene = this.src.scene(l.id);
       if (!scene) continue;
       visible.add(l.id);
+      const lookup = (id: ID) => scene.items.get(id);
+
+      if (l.infinite) {
+        // Tableau blanc : rendu vectoriel direct de la zone visible, sans bords ni cache.
+        const rect: [number, number, number, number] = [vx0 - l.x, vy0 - l.y, vx1 - l.x, vy1 - l.y];
+        ctx.save();
+        ctx.setTransform(target, 0, 0, target, (l.x * vp.zoom + vp.panX) * dpr, (l.y * vp.zoom + vp.panY) * dpr);
+        drawBoardBackground(ctx, scene.page, rect, target);
+        const items = scene.query(rect).filter((i) => !scene.hidden.has(i.id)).sort((a, b) => a.z - b.z);
+        drawItems(ctx, items, this.src.backgrounds, lookup);
+        ctx.restore();
+        scene.dirty = 'clean';
+        scene.pending = [];
+        continue;
+      }
       const sx = (l.x * vp.zoom + vp.panX) * dpr;
       const sy = (l.y * vp.zoom + vp.panY) * dpr;
       const sw = l.width * target;
@@ -155,7 +170,7 @@ export class Renderer {
         ctx.rect(sx, sy, sw, sh);
         ctx.clip();
         ctx.setTransform(target, 0, 0, target, sx, sy);
-        drawPageContent(ctx, scene.page, items, target, this.src.backgrounds);
+        drawPageContent(ctx, scene.page, items, target, this.src.backgrounds, lookup);
         ctx.restore();
         continue;
       }
@@ -167,7 +182,7 @@ export class Renderer {
         this.caches.set(l.id, cache);
       } else if (scene.dirty === 'append') {
         cache.ctx.setTransform(cache.scale, 0, 0, cache.scale, 0, 0);
-        for (const item of scene.pending) if (!scene.hidden.has(item.id)) drawItem(cache.ctx, item, this.src.backgrounds);
+        for (const item of scene.pending) if (!scene.hidden.has(item.id)) drawItem(cache.ctx, item, this.src.backgrounds, undefined, lookup);
         scene.pending = [];
         scene.dirty = 'clean';
       }
@@ -200,7 +215,7 @@ export class Renderer {
     canvas.height = Math.max(1, Math.ceil(page.height * scale));
     const ctx = canvas.getContext('2d', { alpha: false })!;
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    drawPageContent(ctx, page, scene.visible(), scale, this.src.backgrounds);
+    drawPageContent(ctx, page, scene.visible(), scale, this.src.backgrounds, (id) => scene.items.get(id));
     scene.dirty = 'clean';
     scene.pending = [];
     return { canvas, ctx, scale, lastUsed: performance.now() };
@@ -229,7 +244,8 @@ export class Renderer {
         const sy = (l.y * vp.zoom + vp.panY) * dpr;
         ctx.save();
         ctx.beginPath();
-        ctx.rect(sx, sy, l.width * target, l.height * target);
+        if (l.infinite) ctx.rect(0, 0, this.wetCanvas.width, this.wetCanvas.height);
+        else ctx.rect(sx, sy, l.width * target, l.height * target);
         ctx.clip();
         ctx.setTransform(target, 0, 0, target, sx, sy);
         drawItem(ctx, this.wet.item, this.src.backgrounds, this.wet.path);
@@ -263,6 +279,6 @@ export class Renderer {
     canvas.style.height = `${(scene.page.height / scene.page.width) * cssWidth}px`;
     const ctx = canvas.getContext('2d')!;
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    drawPageContent(ctx, scene.page, scene.sorted(), scale, backgrounds);
+    drawPageContent(ctx, scene.page, scene.sorted(), scale, backgrounds, (id) => scene.items.get(id));
   }
 }
