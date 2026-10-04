@@ -40,6 +40,16 @@ leur structure pour qu'elles restent lisibles sans l'application. Les archives
 Une page qui utilise un tel modèle en garde une copie autonome dans son
 `template.source` (voir plus bas) : supprimer le modèle de la liste ne casse rien.
 
+### Données dérivées (non exportées, recalculables)
+
+| Table | Contenu |
+|---|---|
+| `pdftext` | `{ id: "<assetId>#<page>", assetId, pageIndex, items: [{ s, x, y, w, h, eol? }] }` : texte des PDF positionné dans le repère de la page |
+| `pdfmeta` | `{ assetId, name, numPages, outline, links, version, analyzedAt }` : sommaire et liens (cibles : `pageIndex` + `top`, ou `url`) |
+| `searchindex` | `{ notebookId, updatedAt, pages: [{ pageId, texts, pdf? }] }` : texte tapé de chaque page, pour la recherche dans la bibliothèque |
+
+Elles peuvent être supprimées sans perte : Papier les reconstruit à la demande.
+
 ### `assets`
 Fichiers binaires (PDF, images, audio) adressés par leur empreinte SHA-256 :
 `{ id, mime, size, blob, createdAt }`. Un même fichier importé deux fois n'est

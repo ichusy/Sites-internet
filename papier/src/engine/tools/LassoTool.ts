@@ -151,6 +151,11 @@ export class LassoTool implements Tool {
     if (length * zoom < 6) {
       // Simple toucher : sélectionne le trait le plus haut sous le doigt / la pointe.
       ids = this.pickAt(scene, poly[0], poly[1], 8 / zoom);
+      // Toucher hors de tout élément : suit le lien PDF éventuel.
+      if (!ids.length && this.ctx.followLink(page.x + poly[0], page.y + poly[1])) {
+        this.ctx.setSelection(null);
+        return;
+      }
     } else {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (let k = 0; k < poly.length; k += 2) {

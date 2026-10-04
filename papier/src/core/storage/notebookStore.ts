@@ -4,6 +4,7 @@ import { LOCAL_ORIGIN, SCHEMA_VERSION, initNotebook, insertPage, listPages, root
 import { newId } from '../model/ids';
 import type { ID, NotebookRecord, PageData } from '../model/types';
 import { db } from './db';
+import { buildIndex } from '../search/notebookIndex';
 
 export function docName(notebookId: ID) {
   return `papier-nb-${notebookId}`;
@@ -43,6 +44,8 @@ export async function openNotebook(record: NotebookRecord): Promise<OpenNotebook
       updatedAt: Date.now(),
       pageCount: pageOrder.length,
     });
+    // Index de recherche (texte tapé, pages de PDF) tenu à jour au fil de l'eau.
+    void db.searchindex.put(buildIndex(record.id, doc));
   };
   const onUpdate = (_u: Uint8Array, origin: unknown) => {
     if (origin === persistence) return;

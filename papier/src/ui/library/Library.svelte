@@ -4,6 +4,7 @@
     Menu as MenuIcon, Pencil, Search, Settings, Star, Trash2, Upload,
   } from '@lucide/svelte';
   import { backupLibrary, importIntoLibrary, pickAndImport } from '../actions';
+  import { searchLibrary, type LibraryHit } from '../../core/search/librarySearch';
   import { pickFiles } from '../../io/files';
   import { liveQuery } from 'dexie';
   import { db } from '../../core/storage/db';
@@ -53,6 +54,33 @@
   }
 
   const query = $derived(search.trim().toLocaleLowerCase('fr'));
+
+  // ── Recherche dans le contenu (texte tapé et PDF de tous les carnets) ──
+  let contentHits = $state.raw<LibraryHit[]>([]);
+  let contentStatus = $state<string | null>(null);
+  let searching = $state(false);
+
+  $effect(() => {
+    const q = search.trim();
+    if (!q) {
+      contentHits = [];
+      searching = false;
+      return;
+    }
+    let stale = false;
+    searching = true;
+    const t = setTimeout(async () => {
+      const found = await searchLibrary(q, (msg) => !stale && (contentStatus = msg));
+      if (stale) return;
+      contentHits = found;
+      searching = false;
+      contentStatus = null;
+    }, 300);
+    return () => {
+      stale = true;
+      clearTimeout(t);
+    };
+  });
 
   const shownFolders = $derived.by(() => {
     if (query) return folders.filter((f) => f.name.toLocaleLowerCase('fr').includes(query));
@@ -273,11 +301,32 @@
             <NotebookCard {nb} />
           {/each}
         </section>
-      {:else if !shownFolders.length}
+      {/if}
+
+      {#if query}
+        <section class="content-hits" aria-label="Résultats dans le contenu">
+          <h2>Dans le contenu</h2>
+          {#if contentStatus}<p class="hint">{contentStatus}</p>{/if}
+          {#if contentHits.length}
+            <ol>
+              {#each contentHits as h (h.notebookId + h.pageIndex)}
+                <li>
+                  <a href={links.notebook(h.notebookId, { q: search.trim(), page: h.pageIndex })}>
+                    <span class="where">{h.title} · page {h.pageIndex + 1}{h.source === 'pdf' ? ' · PDF' : ''}</span>
+                    <span class="snippet">{h.snippet.before}<mark>{h.snippet.match}</mark>{h.snippet.after}</span>
+                  </a>
+                </li>
+              {/each}
+            </ol>
+          {:else if searching}
+            <p class="hint">Recherche…</p>
+          {:else}
+            <p class="hint">Aucun résultat dans le texte tapé ni dans les PDF.</p>
+          {/if}
+        </section>
+      {:else if !shownNotebooks.length && !shownFolders.length}
         <div class="empty">
-          {#if query}
-            <p>Aucun résultat pour « {search} ».</p>
-          {:else if view === 'favorites'}
+          {#if view === 'favorites'}
             <p>Aucun favori. Touchez l’étoile d’un carnet pour l’ajouter ici.</p>
           {:else if view === 'recent'}
             <p>Les carnets que vous ouvrez apparaîtront ici.</p>
@@ -506,6 +555,54 @@
     justify-content: center;
   }
   .hint-drop {
+    font-size: 13px;
+  }
+  .content-hits {
+    margin-top: 28px;
+    max-width: 760px;
+  }
+  .content-hits h2 {
+    font-size: 15px;
+    font-weight: 650;
+    margin: 0 0 8px;
+  }
+  .content-hits ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .content-hits a {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    color: inherit;
+    text-decoration: none;
+  }
+  .content-hits a:hover {
+    background: var(--surface);
+  }
+  .where {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .snippet {
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+  .content-hits mark {
+    background: #ffd60a;
+    color: #1f2430;
+    border-radius: 2px;
+    padding: 0 1px;
+  }
+  .content-hits .hint {
+    color: var(--muted);
     font-size: 13px;
   }
   .empty {

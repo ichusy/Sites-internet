@@ -2,11 +2,16 @@ export type LibraryView = 'all' | 'favorites' | 'recent' | 'folder';
 
 export type Route =
   | { name: 'library'; view: LibraryView; folderId: string | null }
-  | { name: 'notebook'; id: string };
+  | { name: 'notebook'; id: string; q?: string; page?: number };
 
 function parse(hash: string): Route {
-  const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
-  if (parts[0] === 'nb' && parts[1]) return { name: 'notebook', id: parts[1] };
+  const [path, search = ''] = hash.replace(/^#\/?/, '').split('?');
+  const parts = path.split('/').filter(Boolean);
+  if (parts[0] === 'nb' && parts[1]) {
+    const params = new URLSearchParams(search);
+    const page = params.get('p');
+    return { name: 'notebook', id: parts[1], q: params.get('q') ?? undefined, page: page ? Number(page) : undefined };
+  }
   if (parts[0] === 'f' && parts[1]) return { name: 'library', view: 'folder', folderId: parts[1] };
   if (parts[0] === 'favoris') return { name: 'library', view: 'favorites', folderId: null };
   if (parts[0] === 'recents') return { name: 'library', view: 'recent', folderId: null };
@@ -25,7 +30,13 @@ export const links = {
   favorites: '#/favoris',
   recent: '#/recents',
   folder: (id: string) => `#/f/${id}`,
-  notebook: (id: string) => `#/nb/${id}`,
+  notebook: (id: string, opts: { q?: string; page?: number } = {}) => {
+    const params = new URLSearchParams();
+    if (opts.q) params.set('q', opts.q);
+    if (opts.page !== undefined) params.set('p', String(opts.page));
+    const qs = params.toString();
+    return `#/nb/${id}${qs ? `?${qs}` : ''}`;
+  },
 };
 
 export function go(hash: string) {

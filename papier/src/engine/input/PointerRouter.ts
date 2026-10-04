@@ -11,6 +11,8 @@ export interface RouterHost {
   setGesture(active: boolean): void;
   undo(): void;
   redo(): void;
+  /** Toucher simple du doigt (ou Ctrl/⌘ + clic) : suivi des liens. */
+  tap?(sx: number, sy: number): void;
 }
 
 interface TouchGesture {
@@ -152,6 +154,8 @@ export class PointerRouter {
       this.capture(e);
       this.mousePan = { id: e.pointerId, x: e.clientX, y: e.clientY };
       this.host.setGesture(true);
+    } else if (e.button === 0 && (e.ctrlKey || e.metaKey)) {
+      this.host.tap?.(e.clientX - this.rect.left, e.clientY - this.rect.top);
     } else if (e.button === 0) {
       this.startDraw(e);
     }
@@ -267,6 +271,7 @@ export class PointerRouter {
     if (allowTap && performance.now() - g.startTime < TAP_MS && g.moved < 12) {
       if (g.maxTouches === 2) this.host.undo();
       else if (g.maxTouches === 3) this.host.redo();
+      else if (g.maxTouches === 1) this.host.tap?.(g.lastCx - this.rect.left, g.lastCy - this.rect.top);
     }
   }
 

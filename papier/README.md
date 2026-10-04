@@ -72,6 +72,20 @@ image ou l'un des 16 autocollants intégrés), placés au centre de la page.
 *Importer un modèle…* (une image ou la 1re page d'un PDF), depuis le menu d'une
 page ou à la création d'un carnet.
 
+**Sommaire et liens des PDF** : bouton *Sommaire* de la barre d'outils (sommaire
+intégré au PDF, cliquable, sur plusieurs niveaux). Les liens d'un PDF se suivent
+d'un toucher du doigt, ou avec l'outil lasso (ils y sont matérialisés), ou par
+Ctrl/⌘ + clic ; un lien vers le web demande confirmation avant de s'ouvrir.
+
+**Recherche** :
+- dans un carnet : *Ctrl/⌘+F* ou bouton loupe. Cherche dans le texte tapé et le
+  texte des PDF, sans tenir compte des accents ni des majuscules ; toutes les
+  occurrences sont surlignées, *Entrée* / *Maj+Entrée* passent d'une page à l'autre ;
+- dans toute la bibliothèque : le champ de recherche affiche aussi les pages dont
+  le contenu correspond ; un clic ouvre le carnet à la bonne page, recherche active.
+
+L'écriture manuscrite n'est pas encore cherchable (reconnaissance d'écriture : étape 6).
+
 **PDF et images** :
 - *Bibliothèque → Importer* (ou glisser-déposer) : un PDF ou des images deviennent
   un nouveau carnet, une page par page/image. Le PDF d'origine est conservé tel quel.

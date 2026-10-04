@@ -100,7 +100,7 @@
   }
 </script>
 
-<aside class="panel" aria-label="Pages">
+<div class="panel">
   <div class="list" bind:this={list} onpointermove={moveDrag} onpointerup={endDrag} onpointercancel={() => (drag = null)} role="list">
     {#each pages as p (p.id)}
       {#if drag && drag.to === p.index && drag.to !== drag.from && drag.to !== drag.from + 1}
@@ -126,14 +126,11 @@
       <FilePlus size={16} /> Ajouter
     </button>
   </div>
-</aside>
+</div>
 
 <style>
   .panel {
-    width: 150px;
-    flex: none;
-    background: var(--surface);
-    border-left: 1px solid var(--border);
+    flex: 1;
     display: flex;
     flex-direction: column;
     min-height: 0;
@@ -206,15 +203,5 @@
   }
   .add:hover {
     background: var(--surface-2);
-  }
-  @media (max-width: 700px) {
-    .panel {
-      position: absolute;
-      right: 0;
-      top: 0;
-      bottom: 0;
-      z-index: 20;
-      box-shadow: var(--shadow);
-    }
   }
 </style>

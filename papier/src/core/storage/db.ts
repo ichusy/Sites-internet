@@ -1,5 +1,7 @@
 import Dexie, { type Table } from 'dexie';
-import type { AssetRecord, FolderRecord, NotebookRecord, TemplateRecord } from '../model/types';
+import type {
+  AssetRecord, FolderRecord, NotebookIndexRecord, NotebookRecord, PdfMetaRecord, PdfPageTextRecord, TemplateRecord,
+} from '../model/types';
 
 /**
  * Base IndexedDB « papier » : index de la bibliothèque et fichiers binaires.
@@ -10,6 +12,10 @@ class PapierDB extends Dexie {
   notebooks!: Table<NotebookRecord, string>;
   assets!: Table<AssetRecord, string>;
   templates!: Table<TemplateRecord, string>;
+  /** Données dérivées, recalculables : texte et structure des PDF, index de recherche. */
+  pdftext!: Table<PdfPageTextRecord, string>;
+  pdfmeta!: Table<PdfMetaRecord, string>;
+  searchindex!: Table<NotebookIndexRecord, string>;
 
   constructor() {
     super('papier');
@@ -19,6 +25,7 @@ class PapierDB extends Dexie {
       assets: 'id',
     });
     this.version(2).stores({ templates: 'id, createdAt' });
+    this.version(3).stores({ pdftext: 'id, assetId', pdfmeta: 'assetId', searchindex: 'notebookId' });
   }
 }
 

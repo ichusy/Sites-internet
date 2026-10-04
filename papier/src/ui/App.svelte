@@ -10,7 +10,7 @@
 
 {#if route.name === 'notebook'}
   {#key route.id}
-    <NotebookView id={route.id} />
+    <NotebookView id={route.id} q={route.q} page={route.page} />
   {/key}
 {:else}
   <Library view={route.view} folderId={route.folderId} />

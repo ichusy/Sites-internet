@@ -2,6 +2,7 @@ import { PAPER_FORMATS, defaultTemplate } from '../core/model/paper';
 import type { CoverSpec, ID, NotebookRecord, PageData } from '../core/model/types';
 import { putAsset } from '../core/storage/assets';
 import { createNotebook } from '../core/storage/library';
+import { ensurePdfAnalyzed } from './analyze';
 import { openPdf } from './pdfjs';
 
 export type ImportedPage = Omit<PageData, 'id'>;
@@ -17,8 +18,10 @@ export function isImage(file: File) {
 }
 
 /** Une page par page du PDF, à sa taille d'origine (le PDF est conservé tel quel). */
-export async function pagesFromPdf(file: Blob): Promise<ImportedPage[]> {
+export async function pagesFromPdf(file: Blob, name = 'PDF'): Promise<ImportedPage[]> {
   const assetId = await putAsset(file.type ? file : new Blob([file], { type: 'application/pdf' }));
+  // Texte, sommaire et liens : analysés en arrière-plan pour la recherche et la navigation.
+  void ensurePdfAnalyzed(assetId, name);
   const doc = await openPdf(new Uint8Array(await file.arrayBuffer()));
   try {
     const pages: ImportedPage[] = [];
@@ -53,7 +56,7 @@ export async function pageFromImage(file: Blob): Promise<ImportedPage> {
 export async function pagesFromFiles(files: File[]): Promise<ImportedPage[]> {
   const pages: ImportedPage[] = [];
   for (const f of files) {
-    if (isPdf(f)) pages.push(...(await pagesFromPdf(f)));
+    if (isPdf(f)) pages.push(...(await pagesFromPdf(f, baseName(f.name))));
     else if (isImage(f)) pages.push(await pageFromImage(f));
   }
   return pages;

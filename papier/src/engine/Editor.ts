@@ -18,6 +18,15 @@ import { LassoTool } from './tools/LassoTool';
 import { TextTool } from './tools/TextTool';
 import type { Selection, TextEditRequest, Tool, ToolContext, ToolName, ToolStyles } from './tools/types';
 import { canvasMeasure, layoutText, textBlockHeight } from './render/text';
+import { parseQuery } from '../core/search/match';
+import type { PdfLink, PdfTextItem } from '../core/model/types';
+import { searchPages, type PageHits } from './search';
+
+/** Données issues de l'analyse des PDF, fournies par l'interface. */
+export interface PdfDataProvider {
+  text(assetId: ID, pageIndex: number): PdfTextItem[] | null;
+  links(assetId: ID, pageIndex: number): PdfLink[];
+}
 import { Viewport } from './Viewport';
 
 /** Sélection telle que l'interface l'affiche (rectangle en pixels CSS dans la zone de dessin). */
@@ -72,6 +81,13 @@ export class Editor {
   private editing: TextEditRequest | null = null;
   /** Outil à reprendre quand la sélection faite par « entourer puis toucher » est levée. */
   private returnTool: ToolName | null = null;
+  private pdfData: PdfDataProvider = { text: () => null, links: () => [] };
+  private searchTerms: string[] = [];
+  private searchHits: PageHits[] = [];
+  private activeHit = -1;
+  private searchTimer: ReturnType<typeof setTimeout> | undefined;
+  private searchListeners = new Set<(hits: PageHits[], active: number) => void>();
+  private linkListeners = new Set<(url: string) => void>();
 
   tool: ToolName = 'pen';
   fingerDrawing: FingerDrawing = 'auto';
@@ -114,6 +130,7 @@ export class Editor {
         this.setSelection(sel);
       },
       editText: (req) => this.startTextEdit(req),
+      followLink: (x, y) => this.followLink(x, y),
     };
     this.lasso = new LassoTool(ctx);
     this.tools = {
@@ -124,7 +141,11 @@ export class Editor {
       lasso: this.lasso,
       text: new TextTool(ctx),
     };
-    this.renderer.overlay = (c) => this.lasso.drawOverlay(c);
+    this.renderer.overlay = (c) => {
+      this.drawSearchOverlay(c);
+      if (this.tool === 'lasso') this.drawLinkOverlay(c);
+      this.lasso.drawOverlay(c);
+    };
 
     this.router = new PointerRouter(this.wet, {
       viewport: this.viewport,
@@ -134,6 +155,10 @@ export class Editor {
       setGesture: (active) => (this.renderer.gestureActive = active),
       undo: () => this.undo(),
       redo: () => this.redo(),
+      tap: (sx, sy) => {
+        const [x, y] = this.viewport.toWorld(sx, sy);
+        this.followLink(x, y);
+      },
     });
 
     this.loadScenes();
@@ -161,6 +186,9 @@ export class Editor {
     this.renderer.destroy();
     this.backgrounds.destroy();
     this.selectionListeners.clear();
+    this.searchListeners.clear();
+    this.linkListeners.clear();
+    clearTimeout(this.searchTimer);
     this.textListeners.clear();
     this.toolListeners.clear();
     clearTimeout(this.saveViewTimer);
@@ -467,6 +495,134 @@ export class Editor {
     if (meta.get('title') !== title) meta.set('title', title);
   }
 
+  // ── PDF : liens, sommaire, recherche ────────────────────
+
+  /** Branche le texte et les liens extraits des PDF (chargés par l'interface). */
+  setPdfData(provider: PdfDataProvider) {
+    this.pdfData = provider;
+    if (this.searchTerms.length) this.runSearch();
+    this.renderer.invalidateWet();
+  }
+
+  /** Adresse web d'un lien touché : l'interface décide comment l'ouvrir. */
+  onExternalLink(fn: (url: string) => void): () => void {
+    this.linkListeners.add(fn);
+    return () => this.linkListeners.delete(fn);
+  }
+
+  /** Va à la page du carnet issue de la page `pageIndex` du PDF `assetId`. */
+  goToPdfPage(assetId: ID, pageIndex: number, top?: number): boolean {
+    const l = this.layout.pages.find((p) => {
+      const bg = this.scenes.get(p.id)?.page.background;
+      return bg?.kind === 'pdf' && bg.assetId === assetId && bg.pageIndex === pageIndex;
+    });
+    if (!l) return false;
+    this.scrollToPage(l.index, top);
+    return true;
+  }
+
+  /** Suit le lien PDF situé en (x, y) (coordonnées monde), s'il y en a un. */
+  followLink(x: number, y: number): boolean {
+    const l = this.layout.pages.find((p) => x >= p.x && x <= p.x + p.width && y >= p.y && y <= p.y + p.height);
+    const bg = l && this.scenes.get(l.id)?.page.background;
+    if (!l || bg?.kind !== 'pdf') return false;
+    const lx = x - l.x, ly = y - l.y;
+    const link = this.pdfData.links(bg.assetId, bg.pageIndex).find((k) => lx >= k.rect[0] && lx <= k.rect[2] && ly >= k.rect[1] && ly <= k.rect[3]);
+    if (!link) return false;
+    if (link.url) for (const fn of this.linkListeners) fn(link.url);
+    else if (link.pageIndex !== undefined) this.goToPdfPage(bg.assetId, link.pageIndex, link.top);
+    return true;
+  }
+
+  onSearchResults(fn: (hits: PageHits[], active: number) => void): () => void {
+    this.searchListeners.add(fn);
+    return () => this.searchListeners.delete(fn);
+  }
+
+  /** Lance (ou efface, si vide) la recherche dans le carnet ; les occurrences sont surlignées. */
+  setSearch(query: string) {
+    this.searchTerms = parseQuery(query);
+    this.activeHit = -1;
+    this.runSearch();
+  }
+
+  private runSearch() {
+    this.searchHits = searchPages(this.layout.pages, (id) => this.scenes.get(id), this.searchTerms, (a, p) => this.pdfData.text(a, p));
+    if (this.activeHit >= this.searchHits.length) this.activeHit = this.searchHits.length - 1;
+    this.renderer.invalidateWet();
+    for (const fn of this.searchListeners) fn(this.searchHits, this.activeHit);
+  }
+
+  /** Affiche le résultat n° `i` (page centrée sur sa première occurrence). */
+  focusSearchResult(i: number) {
+    const hit = this.searchHits[i];
+    if (!hit) return;
+    this.activeHit = i;
+    const l = this.layout.pages.find((p) => p.id === hit.pageId);
+    if (l) {
+      const ys = hit.quads.flatMap((q) => [q[1], q[3], q[5], q[7]]);
+      const top = ys.length ? Math.min(...ys) : 0;
+      const visible = this.viewport.height / this.viewport.zoom;
+      this.viewport.panY = this.viewport.height / 3 - (l.y + top) * this.viewport.zoom;
+      if (!ys.length || top < visible / 3) this.scrollToPage(l.index);
+      else this.onViewportChanged();
+    }
+    this.renderer.invalidateWet();
+    for (const fn of this.searchListeners) fn(this.searchHits, this.activeHit);
+  }
+
+  private pageTransform(c: CanvasRenderingContext2D, l: PageLayout) {
+    const vp = this.viewport;
+    const t = vp.zoom * vp.dpr;
+    c.setTransform(t, 0, 0, t, (l.x * vp.zoom + vp.panX) * vp.dpr, (l.y * vp.zoom + vp.panY) * vp.dpr);
+  }
+
+  private drawSearchOverlay(c: CanvasRenderingContext2D) {
+    if (!this.searchHits.length) return;
+    const [vx0, vy0, vx1, vy1] = this.viewport.visibleWorld();
+    this.searchHits.forEach((hit, i) => {
+      const l = this.layout.pages.find((p) => p.id === hit.pageId);
+      if (!l || l.y > vy1 || l.y + l.height < vy0 || l.x > vx1 || l.x + l.width < vx0) return;
+      this.pageTransform(c, l);
+      c.fillStyle = i === this.activeHit ? 'rgba(255, 150, 20, 0.55)' : 'rgba(255, 214, 10, 0.45)';
+      for (const q of hit.quads) {
+        c.beginPath();
+        c.moveTo(q[0], q[1]);
+        c.lineTo(q[2], q[3]);
+        c.lineTo(q[4], q[5]);
+        c.lineTo(q[6], q[7]);
+        c.closePath();
+        c.fill();
+      }
+    });
+    c.setTransform(1, 0, 0, 1, 0, 0);
+  }
+
+  /** Avec le lasso, les liens des PDF sont matérialisés (toucher = suivre le lien). */
+  private drawLinkOverlay(c: CanvasRenderingContext2D) {
+    const [, vy0, , vy1] = this.viewport.visibleWorld();
+    for (const l of this.layout.pages) {
+      if (l.y > vy1 || l.y + l.height < vy0) continue;
+      const bg = this.scenes.get(l.id)?.page.background;
+      if (bg?.kind !== 'pdf') continue;
+      const links = this.pdfData.links(bg.assetId, bg.pageIndex);
+      if (!links.length) continue;
+      this.pageTransform(c, l);
+      c.fillStyle = 'rgba(52, 97, 201, 0.10)';
+      c.strokeStyle = 'rgba(52, 97, 201, 0.55)';
+      c.lineWidth = 1 / this.viewport.zoom;
+      for (const k of links) {
+        const [x0, y0, x1, y1] = k.rect;
+        c.fillRect(x0, y0, x1 - x0, y1 - y0);
+        c.beginPath();
+        c.moveTo(x0, y1);
+        c.lineTo(x1, y1);
+        c.stroke();
+      }
+    }
+    c.setTransform(1, 0, 0, 1, 0, 0);
+  }
+
   setDeskColor(color: string) {
     this.renderer.deskColor = color;
     this.renderer.invalidate();
@@ -561,10 +717,11 @@ export class Editor {
     return best;
   }
 
-  scrollToPage(index: number) {
+  /** Fait défiler jusqu'à la page `index` ; `top` (points) vise une hauteur précise dans la page. */
+  scrollToPage(index: number, top?: number) {
     const l = this.layout.pages[index];
     if (!l) return;
-    this.viewport.panY = TOP_MARGIN - l.y * this.viewport.zoom;
+    this.viewport.panY = top ? TOP_MARGIN * 3 - (l.y + top) * this.viewport.zoom : TOP_MARGIN - l.y * this.viewport.zoom;
     this.onViewportChanged();
   }
 
@@ -709,6 +866,10 @@ export class Editor {
     this.renderer.invalidate();
     for (const id of changed) for (const fn of this.pageListeners) fn(id);
     this.pruneSelection();
+    if (this.searchTerms.length) {
+      clearTimeout(this.searchTimer);
+      this.searchTimer = setTimeout(() => this.runSearch(), 300);
+    }
   };
 
   /** Retire de la sélection les éléments disparus (annulation, gomme, autre appareil). */

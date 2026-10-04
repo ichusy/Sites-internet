@@ -96,6 +96,8 @@ export interface ToolContext {
   selectWithLasso(sel: Selection): void;
   /** Demande l'édition d'une zone de texte (existante ou nouvelle). */
   editText(req: TextEditRequest): void;
+  /** Suit le lien PDF en (x, y) (coordonnées monde) ; vrai si un lien a été trouvé. */
+  followLink(x: number, y: number): boolean;
 }
 
 /** Zone de texte à éditer, en coordonnées de page. */

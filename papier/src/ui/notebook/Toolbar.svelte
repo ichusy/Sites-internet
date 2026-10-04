@@ -1,8 +1,9 @@
 <script lang="ts">
   import {
     ChevronLeft, ClipboardPaste, Eraser, FilePlus, Highlighter, ImagePlus, LassoSelect, PanelRight, Pen, Pencil, Redo2,
-    SlidersHorizontal, Type, Undo2, X,
+    Search, SlidersHorizontal, TableOfContents, Type, Undo2, X,
   } from '@lucide/svelte';
+  import type { PanelTab } from './SidePanel.svelte';
   import type { Component } from 'svelte';
   import Menu, { type MenuItem } from '../common/Menu.svelte';
   import type { Brush, DashStyle } from '../../core/model/types';
@@ -17,7 +18,7 @@
     title: string;
     tool: ToolName;
     es: EditorState;
-    pagesOpen: boolean;
+    panel: PanelTab | null;
     onrename: () => void;
     onundo: () => void;
     onredo: () => void;
@@ -30,7 +31,7 @@
     onsticker: (s: Sticker) => void;
   }
   let {
-    title, tool = $bindable(), es, pagesOpen = $bindable(), onrename, onundo, onredo, onaddpage, onfit, canPaste, onpaste, docItems,
+    title, tool = $bindable(), es, panel = $bindable(), onrename, onundo, onredo, onaddpage, onfit, canPaste, onpaste, docItems,
     oninsertimage, onsticker,
   }: Props = $props();
 
@@ -243,7 +244,13 @@
     <button type="button" class="zoom" title="Ajuster à la largeur (0)" onclick={onfit}>{Math.round(es.zoom * 100)} %</button>
     <span class="page-indicator" title="Page courante">{es.currentPage + 1}/{es.pageCount}</span>
     <button type="button" class="icon-btn" title="Ajouter une page" aria-label="Ajouter une page" onclick={onaddpage}><FilePlus size={19} /></button>
-    <button type="button" class="icon-btn" class:active={pagesOpen} aria-pressed={pagesOpen} title="Pages" aria-label="Panneau des pages" onclick={() => (pagesOpen = !pagesOpen)}>
+    <button type="button" class="icon-btn" class:active={panel === 'search'} aria-pressed={panel === 'search'} title="Rechercher (Ctrl+F)" aria-label="Rechercher" onclick={() => (panel = panel === 'search' ? null : 'search')}>
+      <Search size={19} />
+    </button>
+    <button type="button" class="icon-btn" class:active={panel === 'outline'} aria-pressed={panel === 'outline'} title="Sommaire" aria-label="Sommaire" onclick={() => (panel = panel === 'outline' ? null : 'outline')}>
+      <TableOfContents size={19} />
+    </button>
+    <button type="button" class="icon-btn" class:active={panel === 'pages'} aria-pressed={panel === 'pages'} title="Pages" aria-label="Panneau des pages" onclick={() => (panel = panel === 'pages' ? null : 'pages')}>
       <PanelRight size={19} />
     </button>
     <Menu items={docItems} label="Importer, exporter…" />

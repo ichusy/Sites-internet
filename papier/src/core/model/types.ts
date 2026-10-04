@@ -163,3 +163,62 @@ export interface AssetRecord {
   blob: Blob;
   createdAt: number;
 }
+
+// ── Données dérivées (recalculables, non exportées) ─────
+
+/** Morceau de texte d'une page de PDF, positionné dans le repère de la page Papier. */
+export interface PdfTextItem {
+  s: string;
+  /** Coin haut-gauche, largeur et hauteur approximatives (points). */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** Fin de ligne après ce morceau. */
+  eol?: boolean;
+}
+
+export interface PdfPageTextRecord {
+  /** `${assetId}#${pageIndex}` */
+  id: string;
+  assetId: ID;
+  pageIndex: number;
+  items: PdfTextItem[];
+}
+
+/** Cible d'un lien ou d'une entrée de sommaire : page du PDF (et hauteur), ou adresse web. */
+export interface PdfTarget {
+  pageIndex?: number;
+  /** Position verticale visée dans la page (points depuis le haut). */
+  top?: number;
+  url?: string;
+}
+
+export interface PdfOutlineNode extends PdfTarget {
+  title: string;
+  children: PdfOutlineNode[];
+}
+
+export interface PdfLink extends PdfTarget {
+  /** Zone cliquable [minX, minY, maxX, maxY] dans le repère de la page. */
+  rect: BBox;
+}
+
+export interface PdfMetaRecord {
+  assetId: ID;
+  /** Nom du fichier d'origine (sans extension). */
+  name: string;
+  numPages: number;
+  outline: PdfOutlineNode[];
+  /** Liens par page (indice = numéro de page du PDF à partir de 0). */
+  links: PdfLink[][];
+  version: number;
+  analyzedAt: number;
+}
+
+/** Texte tapé de chaque page d'un carnet, pour la recherche dans la bibliothèque. */
+export interface NotebookIndexRecord {
+  notebookId: ID;
+  updatedAt: number;
+  pages: { pageId: ID; texts: string[]; pdf?: { assetId: ID; pageIndex: number } }[];
+}

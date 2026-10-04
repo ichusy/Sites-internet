@@ -21,18 +21,33 @@
   import { settings } from '../settings.svelte';
   import { theme } from '../theme.svelte';
   import PagesPanel from './PagesPanel.svelte';
+  import SidePanel, { type PanelTab } from './SidePanel.svelte';
+  import OutlinePanel, { type PdfOutline } from './OutlinePanel.svelte';
+  import SearchPanel from './SearchPanel.svelte';
+  import type { PageHits } from '../../engine/search';
+  import type { ID, PdfLink, PdfMetaRecord, PdfOutlineNode, PdfTextItem } from '../../core/model/types';
+  import { ensurePdfAnalyzed, pdfPageTexts } from '../../pdf/analyze';
+  import { askConfirm } from '../common/dialogs.svelte';
   import Toolbar from './Toolbar.svelte';
 
-  let { id }: { id: string } = $props();
+  let { id, q, page }: { id: string; q?: string; page?: number } = $props();
 
-  const PANEL_KEY = 'papier-pages-panel';
+  const PANEL_KEY = 'papier-side-panel';
 
   let record = $state<NotebookRecord | null>(null);
   let missing = $state(false);
   let editor = $state.raw<Editor | null>(null);
   let es = $state<EditorState>({ canUndo: false, canRedo: false, pageCount: 0, currentPage: 0, zoom: 1 });
   let tool = $state<ToolName>('pen');
-  let pagesOpen = $state(readPanelPref());
+  let panel = $state<PanelTab | null>(readPanelPref());
+  let searchQuery = $state('');
+  let searchInput = $state<HTMLInputElement>();
+  let hits = $state.raw<PageHits[]>([]);
+  let activeHit = $state(-1);
+  let outlines = $state.raw<PdfOutline[]>([]);
+  let pdfLoading = $state(false);
+  /** Page à mettre en avant une fois la recherche (venue de la bibliothèque) calculée. */
+  let pendingFocusPage: number | undefined = untrack(() => page);
   let container = $state<HTMLDivElement>();
   let selection = $state<SelectionInfo | null>(null);
   let canPaste = $state(hasClipboard());
@@ -40,13 +55,60 @@
   let textReq = $state<TextEditRequest | null>(null);
   let textarea = $state<HTMLTextAreaElement>();
 
-  function readPanelPref() {
+  function readPanelPref(): PanelTab | null {
     try {
       const v = localStorage.getItem(PANEL_KEY);
-      return v === null ? window.innerWidth > 1000 : v === '1';
+      if (v === 'pages' || v === 'outline' || v === 'search') return v;
+      if (v === 'none') return null;
+      return window.innerWidth > 1000 ? 'pages' : null;
     } catch {
-      return false;
+      return null;
     }
+  }
+
+  // ── Données des PDF (texte, sommaire, liens), mises en cache pour la durée de la vue ──
+  const pdfMetas = new Map<ID, PdfMetaRecord>();
+  const pdfTexts = new Map<string, PdfTextItem[]>();
+
+  async function loadPdfData(ed: Editor) {
+    const assets: ID[] = [];
+    for (const l of ed.pages()) {
+      const bg = ed.scene(l.id)?.page.background;
+      if (bg?.kind === 'pdf' && !assets.includes(bg.assetId)) assets.push(bg.assetId);
+    }
+    const missing = assets.filter((a) => !pdfMetas.has(a));
+    if (missing.length) {
+      pdfLoading = true;
+      for (const a of missing) {
+        const meta = await ensurePdfAnalyzed(a);
+        if (!meta) continue;
+        pdfMetas.set(a, meta);
+        for (const rec of await pdfPageTexts(a)) pdfTexts.set(rec.id, rec.items);
+      }
+      pdfLoading = false;
+    }
+    if (editor !== ed) return;
+    outlines = assets.filter((a) => pdfMetas.has(a)).map((a) => ({ assetId: a, name: pdfMetas.get(a)!.name, outline: pdfMetas.get(a)!.outline }));
+    ed.setPdfData({
+      text: (a, p) => pdfTexts.get(`${a}#${p}`) ?? null,
+      links: (a, p): PdfLink[] => pdfMetas.get(a)?.links[p] ?? [],
+    });
+  }
+
+  async function openExternal(url: string) {
+    if (await askConfirm('Ouvrir le lien ?', url, 'Ouvrir')) window.open(url, '_blank', 'noopener');
+  }
+
+  function goToOutline(assetId: ID, node: PdfOutlineNode) {
+    if (node.url) void openExternal(node.url);
+    else if (node.pageIndex !== undefined) editor?.goToPdfPage(assetId, node.pageIndex, node.top);
+  }
+
+  async function openSearch() {
+    panel = 'search';
+    await tick();
+    searchInput?.focus();
+    searchInput?.select();
   }
 
   onMount(() => {
@@ -75,6 +137,18 @@
       });
       const offSel = ed.onSelection((s) => (selection = s));
       const offTool = ed.onToolChange((t) => (tool = t));
+      const offSearch = ed.onSearchResults((h, a) => {
+        hits = h;
+        activeHit = a;
+        if (pendingFocusPage !== undefined) {
+          const i = h.findIndex((x) => x.index === pendingFocusPage);
+          if (i >= 0) {
+            pendingFocusPage = undefined;
+            queueMicrotask(() => ed.focusSearchResult(i));
+          }
+        }
+      });
+      const offLink = ed.onExternalLink((url) => void openExternal(url));
       const offText = ed.onTextEdit((req) => {
         textReq = req ? { ...req } : null;
         if (!req || !textarea) return;
@@ -89,8 +163,16 @@
         offSel();
         offTool();
         offText();
+        offSearch();
+        offLink();
       };
       editor = ed;
+      if (page !== undefined) ed.scrollToPage(page);
+      if (q) {
+        searchQuery = q;
+        panel = 'search';
+      }
+      void loadPdfData(ed);
     })();
 
     return () => {
@@ -118,10 +200,26 @@
 
   $effect(() => {
     try {
-      localStorage.setItem(PANEL_KEY, pagesOpen ? '1' : '0');
+      localStorage.setItem(PANEL_KEY, panel ?? 'none');
     } catch {
       /* ignoré */
     }
+  });
+
+  // Recherche active seulement quand l'onglet Recherche est ouvert (léger délai pendant la frappe).
+  $effect(() => {
+    const query = panel === 'search' ? searchQuery : '';
+    const ed = editor;
+    if (!ed) return;
+    const t = setTimeout(() => ed.setSearch(query), query ? 150 : 0);
+    return () => clearTimeout(t);
+  });
+
+  // Nouvelles pages (PDF insérés) : recharge le sommaire et le texte des PDF.
+  $effect(() => {
+    void es.pageCount;
+    const ed = editor;
+    if (ed) untrack(() => void loadPdfData(ed));
   });
 
   async function rename() {
@@ -212,6 +310,9 @@
       e.preventDefault();
       if (e.shiftKey) editor.redo();
       else editor.undo();
+    } else if (mod && key === 'f') {
+      e.preventDefault();
+      void openSearch();
     } else if (mod && key === 'y') {
       e.preventDefault();
       editor.redo();
@@ -265,7 +366,7 @@
       title={record?.title ?? ''}
       bind:tool
       {es}
-      bind:pagesOpen
+      bind:panel
       onrename={rename}
       onundo={() => editor?.undo()}
       onredo={() => editor?.redo()}
@@ -300,8 +401,16 @@
       {#if editor}
         <TextEditor {editor} req={textReq} {es} bind:textarea />
       {/if}
-      {#if editor && pagesOpen}
-        <PagesPanel {editor} current={es.currentPage} pageCount={es.pageCount} />
+      {#if editor && panel}
+        <SidePanel bind:tab={panel}>
+          {#if panel === 'pages'}
+            <PagesPanel {editor} current={es.currentPage} pageCount={es.pageCount} />
+          {:else if panel === 'outline'}
+            <OutlinePanel {outlines} loading={pdfLoading} ongo={goToOutline} />
+          {:else}
+            <SearchPanel bind:query={searchQuery} bind:input={searchInput} {hits} active={activeHit} pending={pdfLoading} onpick={(i) => editor?.focusSearchResult(i)} />
+          {/if}
+        </SidePanel>
       {/if}
     </div>
   {/if}

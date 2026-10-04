@@ -28,6 +28,7 @@ src/
 ├─ app.css                 variables de thème clair/sombre, styles de base
 ├─ core/                   données, sans dépendance à l'interface
 │  ├─ model/               types, schéma Yjs, encodage des points, formats de papier
+│  ├─ search/              normalisation, correspondances, index des carnets, recherche bibliothèque
 │  └─ storage/             Dexie (bibliothèque), ouverture/création des Y.Doc
 ├─ engine/                 moteur d'encre, indépendant du framework
 │  ├─ Editor.ts            façade : document ↔ scènes ↔ rendu ↔ saisie ↔ outils
@@ -41,7 +42,8 @@ src/
 │  │                       reconnaissance de formes / gribouillis (recognize.ts)
 │  ├─ render/              + grain du crayon, mise en page du texte, modèles (primitives)
 │  └─ tools/               stylo, crayon & surligneur (InkTool), gomme, lasso, texte
-├─ pdf/                    pdf.js (chargement), import PDF/images, export PDF
+├─ pdf/                    pdf.js (chargement), import PDF/images, export PDF,
+│                          analyse (texte positionné, sommaire, liens)
 ├─ io/                     archives .papier, sélection et enregistrement de fichiers
 └─ ui/                     composants Svelte (bibliothèque, carnet, dialogues, actions)
 ```
@@ -100,6 +102,31 @@ src/
   libellés ; partagé par l'écran et l'export. Modèle importé = image ou page de
   PDF étirée sur la page (rendue par le même `BackgroundStore` que les fonds).
 
+## Étape 3 : PDF navigables et recherche
+
+- **Analyse des PDF** (`pdf/analyze.ts`), en arrière-plan dès l'import, ou à la
+  demande pour les PDF importés avant : pour chaque page, les morceaux de texte de
+  pdf.js avec leur position dans le repère de la page, les liens (zone, page et
+  hauteur visées, ou adresse web) et le sommaire (destinations résolues).
+  Résultat stocké dans IndexedDB (`pdftext`, `pdfmeta`), réanalysé si
+  `ANALYSIS_VERSION` change. Ce sont des données dérivées : jamais exportées.
+- **Normalisation** (`core/search/match.ts`) : minuscules, accents retirés,
+  ligatures (œ → oe), apostrophes, tirets et espaces unifiés, avec une table qui
+  ramène chaque correspondance à sa position dans le texte d'origine.
+  Une page correspond si elle contient **tous** les termes ; toutes leurs
+  occurrences sont surlignées.
+- **Dans un carnet** (`engine/search.ts`) : texte tapé mesuré exactement (lignes
+  calculées comme au rendu, rotation comprise) ; texte des PDF positionné par
+  morceau, l'abscisse dans un morceau étant estimée par le rapport des largeurs
+  mesurées. Les surlignages sont dessinés sur le calque d'encre fraîche.
+- **Dans la bibliothèque** (`core/search/librarySearch.ts`) : un index par carnet
+  (`searchindex` : texte tapé de chaque page et page de PDF associée) est tenu à
+  jour à chaque modification, et reconstruit au besoin pour les carnets plus
+  anciens. Recherche par simple parcours (rapide pour des milliers de pages) ;
+  un index inversé dans un worker pourra venir si les volumes l'exigent.
+- **Liens** : toucher simple du doigt (quand le doigt ne dessine pas), toucher
+  avec le lasso hors de tout élément, ou Ctrl/⌘ + clic.
+
 ## Export PDF
 
 - Page issue d'un PDF : la page d'origine est **recopiée** (pdf-lib `copyPages`),
@@ -123,7 +150,7 @@ src/
 | 1a | Bibliothèque, pages, stylo (3 pointes, pression, tirets/pointillés), surligneur, gomme, zoom, rejet de paume, annuler/rétablir | ✅ |
 | 1b | Lasso ; import PDF/images ; export PDF avec/sans annotations ; archive `.papier` | ✅ |
 | 2 | Crayon, gribouiller-pour-effacer, formes, texte, images, autocollants, modèles Cornell/planner/importés | ✅ |
-| 3 | PDF : sommaire, liens ; recherche plein texte | |
+| 3 | PDF : sommaire, liens ; recherche plein texte | ✅ |
 | 4 | Canevas infini, post-its, connecteurs | |
 | 5 | Audio synchronisé, transcription | |
 | 6 | Reconnaissance d'écriture, recherche manuscrite | |
