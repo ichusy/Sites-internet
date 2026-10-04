@@ -1,5 +1,6 @@
 import type { PDFDocumentProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
-import type { ID, PageBackground } from '../../core/model/types';
+import type { ID, PageBackground, PageData } from '../../core/model/types';
+import type { RenderResources } from './draw';
 import { getAsset } from '../../core/storage/assets';
 import { openPdf } from '../../pdf/pdfjs';
 
@@ -28,7 +29,7 @@ function quantize(scale: number) {
  * `get()` renvoie immédiatement le meilleur rendu disponible (ou null) et lance
  * en arrière-plan un rendu plus net si besoin ; `onReady` prévient quand il est prêt.
  */
-export class BackgroundStore {
+export class BackgroundStore implements RenderResources {
   private pdfs = new Map<ID, Promise<PDFDocumentProxy | null>>();
   private images = new Map<ID, ImageBitmap | null>();
   private imageLoads = new Set<ID>();
@@ -52,6 +53,21 @@ export class BackgroundStore {
     }
     if (have) have.lastUsed = performance.now();
     return have?.canvas ?? null;
+  }
+
+  image(assetId: ID): CanvasImageSource | null {
+    return this.getImage({ kind: 'image', assetId });
+  }
+
+  pageBackground(page: PageData, scale: number): CanvasImageSource | null {
+    return page.background ? this.get(page.background, page.width, page.height, scale) : null;
+  }
+
+  templateImage(page: PageData, scale: number): CanvasImageSource | null {
+    const src = page.template.kind === 'custom' ? page.template.source : undefined;
+    if (!src) return null;
+    const bg: PageBackground = src.kind === 'pdf' ? { kind: 'pdf', assetId: src.assetId, pageIndex: src.pageIndex } : { kind: 'image', assetId: src.assetId };
+    return this.get(bg, page.width, page.height, scale);
   }
 
   destroy() {

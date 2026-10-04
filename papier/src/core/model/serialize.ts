@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import { SCHEMA_VERSION, addElements, insertPage, listPages, pageElements, roots } from './notebookDoc';
-import type { PageData, PageElement } from './types';
+import type { PageData, PageElement, StrokeElement } from './types';
 
 /**
  * Représentation JSON lisible d'un carnet (fichier notebooks/<id>.json des archives .papier).
@@ -12,7 +12,8 @@ export interface NotebookJson {
   pages: (PageData & { elements: JsonElement[] })[];
 }
 
-export type JsonElement = Omit<PageElement, 'points'> & { points: string };
+/** Éléments tels qu'écrits dans le JSON : les points des traits passent en base64. */
+export type JsonElement = Exclude<PageElement, StrokeElement> | (Omit<StrokeElement, 'points'> & { points: string });
 
 export function bytesToBase64(bytes: Uint8Array): string {
   let bin = '';
@@ -37,7 +38,7 @@ export function docToJson(doc: Y.Doc): NotebookJson {
       ...page,
       elements: [...(pageElements(doc, page.id)?.values() ?? [])]
         .sort((a, b) => a.z - b.z)
-        .map((el) => ({ ...el, points: bytesToBase64(el.points) })),
+        .map((el): JsonElement => (el.type === 'stroke' ? { ...el, points: bytesToBase64(el.points) } : el)),
     })),
   };
 }
@@ -51,7 +52,11 @@ export function jsonToDoc(json: NotebookJson, doc = new Y.Doc()): Y.Doc {
     json.pages.forEach((p, index) => {
       const { elements, ...page } = p;
       insertPage(doc, page, index);
-      addElements(doc, page.id, elements.map((el) => ({ ...el, points: base64ToBytes(el.points) }) as PageElement));
+      addElements(
+        doc,
+        page.id,
+        elements.map((el): PageElement => (el.type === 'stroke' ? { ...el, points: base64ToBytes(el.points) } : el)),
+      );
     });
   });
   return doc;

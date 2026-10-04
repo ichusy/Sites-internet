@@ -43,12 +43,34 @@ depuis n'importe quel sous-dossier (GitHub Pages, Netlify, serveur web…).
 | Défiler | 1 doigt (dès qu'un stylet a été utilisé) | molette, clic milieu, Espace + glisser |
 | Zoomer | pincer | Ctrl/⌘ + molette, pincement trackpad, `+` / `-`, `0` = ajuster |
 | Annuler / rétablir | tap 2 doigts / tap 3 doigts | Ctrl/⌘+Z / Ctrl/⌘+Maj+Z |
-| Outils | barre d'outils | `P` stylo, `H` surligneur, `E` gomme, `L` lasso |
+| Outils | barre d'outils | `P` stylo, `C` crayon, `H` surligneur, `E` gomme, `L` lasso, `T` texte |
 | Sélection (lasso) | entourer, ou toucher un trait | Ctrl/⌘+C / X / V / D, Suppr, Échap, Ctrl/⌘+A |
 
 **Lasso** : entourez des traits (ou touchez-en un) pour les sélectionner, glissez
 la sélection pour la déplacer, tirez une poignée d'angle pour la redimensionner ;
 la barre flottante permet de recolorer, copier, couper, dupliquer, supprimer.
+
+**Gestes d'écriture** (désactivables dans les réglages ⚙ du stylo) :
+- *Maintenir* la pointe immobile ~½ s en fin de tracé : le trait devient une ligne,
+  un cercle/ellipse, un rectangle, un triangle ou un polygone net (aimanté aux axes).
+- *Gribouiller* par-dessus des traits : ils sont effacés (le gribouillis aussi).
+- *Entourer* des éléments au stylo puis *toucher* l'intérieur dans les 2,5 s :
+  la boucle disparaît et son contenu est sélectionné ; la sélection levée, on
+  retrouve le stylo.
+
+**Lasso** : poignées d'angle pour redimensionner, poignée ronde au-dessus pour
+faire pivoter (aimantée tous les 45°). Fonctionne sur l'encre, le texte, les images.
+
+**Texte tapé** (`T`) : toucher la page pour créer une zone (glisser horizontalement
+pour choisir sa largeur), toucher une zone existante pour la modifier. Couleur et
+taille dans la barre d'outils, y compris pendant la saisie.
+
+**Images et autocollants** : bouton d'insertion de la barre d'outils (photo,
+image ou l'un des 16 autocollants intégrés), placés au centre de la page.
+
+**Modèles de page** : blanc, ligné, quadrillé, pointillé, Cornell, semainier, ou
+*Importer un modèle…* (une image ou la 1re page d'un PDF), depuis le menu d'une
+page ou à la création d'un carnet.
 
 **PDF et images** :
 - *Bibliothèque → Importer* (ou glisser-déposer) : un PDF ou des images deviennent

@@ -7,18 +7,24 @@
     children: Snippet;
     label: string;
     btnClass?: string;
+    open?: boolean;
   }
-  let { trigger, children, label, btnClass = 'icon-btn' }: Props = $props();
-
-  let open = $state(false);
+  let { trigger, children, label, btnClass = 'icon-btn', open = $bindable(false) }: Props = $props();
   let btn: HTMLButtonElement;
   let panel = $state<HTMLDivElement>();
   let pos = $state({ x: 0, y: 0 });
 
   async function toggle() {
     open = !open;
-    if (!open) return;
+  }
+
+  $effect(() => {
+    if (open) void place();
+  });
+
+  async function place() {
     await tick();
+    if (!btn || !panel) return;
     const r = btn.getBoundingClientRect();
     const p = panel!.getBoundingClientRect();
     const x = Math.max(8, Math.min(r.left + r.width / 2 - p.width / 2, window.innerWidth - p.width - 8));

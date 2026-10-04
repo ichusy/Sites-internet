@@ -29,7 +29,7 @@ describe('sérialisation JSON', () => {
 
     const copy = jsonToDoc(json);
     expect(listPages(copy)).toEqual(listPages(doc));
-    const back = pageElements(copy, pageId)!.get('s1')!;
+    const back = pageElements(copy, pageId)!.get('s1') as StrokeElement;
     expect(Array.from(back.points)).toEqual(Array.from(el.points));
     expect(back.transform).toEqual(el.transform);
     expect(back.color).toBe('#2f5fd0');

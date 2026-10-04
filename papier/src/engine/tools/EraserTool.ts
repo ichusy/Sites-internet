@@ -62,6 +62,8 @@ export class EraserTool implements Tool {
       const added: StrokeElement[] = [];
 
       for (const item of candidates) {
+        // La gomme n'agit que sur l'encre ; texte et images se suppriment au lasso.
+        if (item.el.type !== 'stroke') continue;
         const hw = strokeHalfWidth(item.el);
         if (styles.eraser.mode === 'stroke') {
           if (strokeHit(item.pts, hw, s)) removed.push(item.id);
@@ -70,7 +72,7 @@ export class EraserTool implements Tool {
         const pieces = splitStroke(item.pts, hw, s);
         if (!pieces) continue;
         removed.push(item.id);
-        const { transform: _t, ...base } = item.el;
+        const { transform: _t, closed: _c, ...base } = item.el;
         pieces.forEach((pts, k) => {
           const el: StrokeElement = {
             ...base,

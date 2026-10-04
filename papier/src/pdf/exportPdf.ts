@@ -1,12 +1,15 @@
 import type * as PdfLib from 'pdf-lib';
 import type * as Y from 'yjs';
 import { listPages, pageElements, roots } from '../core/model/notebookDoc';
-import type { BBox, ID, Mat2D, PageData } from '../core/model/types';
+import type { BBox, ID, ImageElement, Mat2D, PageData, StrokeElement, TextElement } from '../core/model/types';
 import { getAsset } from '../core/storage/assets';
 import { invertMat, multiplyMat } from '../engine/geometry/geom';
-import { strokeOutline, traceCenterline, traceOutline, type PathSink } from '../engine/ink/brushes';
-import { DOT_COLOR, LINE_COLOR, MARGIN_COLOR, templatePrimitives, type Segment } from '../engine/render/templates';
-import { makeItem, type RenderItem } from '../engine/scene';
+import { strokeOutline, traceCenterline, traceOutline, tracePolyline, type PathSink } from '../engine/ink/brushes';
+import {
+  DOT_COLOR, LABEL_COLOR, LINE_COLOR, MARGIN_COLOR, STRUCTURE_COLOR, templatePrimitives, type Segment,
+} from '../engine/render/templates';
+import { BASELINE, LINE_HEIGHT, layoutText } from '../engine/render/text';
+import { isCenterline, isHighlight, makeItem, type RenderItem } from '../engine/scene';
 import { openPdf } from './pdfjs';
 
 export interface ExportOptions {
@@ -74,65 +77,162 @@ function pdfSink(lib: Lib, ops: PdfLib.PDFOperator[]): PathSink {
   };
 }
 
+/** Ressources partagées par toutes les pages de l'export (polices, images intégrées). */
+class ExportResources {
+  private images = new Map<ID, Promise<PdfLib.PDFImage | null>>();
+  private fontP: Promise<PdfLib.PDFFont> | null = null;
+  font: PdfLib.PDFFont | null = null;
+  private charset: Set<number> | null = null;
+
+  constructor(readonly lib: Lib, readonly out: PdfLib.PDFDocument) {}
+
+  image(id: ID): Promise<PdfLib.PDFImage | null> {
+    let p = this.images.get(id);
+    if (!p) {
+      p = assetBytes(id).then((a) => (a ? embedImage(this.out, a) : null)).catch(() => null);
+      this.images.set(id, p);
+    }
+    return p;
+  }
+
+  async ensureFont() {
+    this.fontP ??= this.out.embedFont(this.lib.StandardFonts.Helvetica);
+    this.font = await this.fontP;
+    this.charset ??= new Set(this.font.getCharacterSet());
+  }
+
+  /** Remplace les caractères absents de la police standard (encodage WinAnsi). */
+  sanitize(text: string) {
+    return [...text.replace(/\t/g, '    ')].map((ch) => (ch === '\n' || this.charset!.has(ch.codePointAt(0)!) ? ch : '?')).join('');
+  }
+}
+
 class PageWriter {
   private states = new Map<string, PdfLib.PDFName>();
+  private xobjects = new Map<ID, PdfLib.PDFName>();
+  private fontKey: PdfLib.PDFName | null = null;
   readonly ops: PdfLib.PDFOperator[] = [];
 
-  constructor(private lib: Lib, private out: PdfLib.PDFDocument, private page: PdfLib.PDFPage) {}
+  constructor(
+    private res: ExportResources,
+    private page: PdfLib.PDFPage,
+    private images: Map<ID, PdfLib.PDFImage | null>,
+  ) {}
+
+  private get lib() {
+    return this.res.lib;
+  }
 
   /** État graphique (mode de fusion, opacité), créé une seule fois par page. */
   private state(blend: 'Normal' | 'Multiply', opacity: number) {
     const key = `${blend}:${opacity}`;
     let name = this.states.get(key);
     if (!name) {
-      const dict = this.out.context.obj({ Type: 'ExtGState', BM: blend, CA: opacity, ca: opacity });
-      name = this.page.node.newExtGState('PapierGS', this.out.context.register(dict));
+      const ctx = this.res.out.context;
+      const dict = ctx.obj({ Type: 'ExtGState', BM: blend, CA: opacity, ca: opacity });
+      name = this.page.node.newExtGState('PapierGS', ctx.register(dict));
       this.states.set(key, name);
     }
     return name;
   }
 
+  private fontName() {
+    if (!this.fontKey) {
+      const font = this.res.font!;
+      this.fontKey = this.page.node.newFontDictionary(font.name, font.ref);
+    }
+    return this.fontKey;
+  }
+
+  /** Lignes de texte à la ligne de base `y`, glyphes à l'endroit dans le repère Y vers le bas. */
+  private textLines(lines: string[], x: number, y0: number, size: number, color: string) {
+    const { lib, ops } = this;
+    const font = this.res.font!;
+    ops.push(lib.setFillingRgbColor(...hexToRgb(color)), lib.beginText(), lib.setFontAndSize(this.fontName(), size));
+    lines.forEach((line, i) => {
+      if (!line) return;
+      ops.push(lib.setTextMatrix(1, 0, 0, -1, x, y0 + i * size * LINE_HEIGHT), lib.showText(font.encodeText(this.res.sanitize(line))));
+    });
+    ops.push(lib.endText());
+  }
+
   template(page: PageData) {
     const { lib, ops } = this;
     const prim = templatePrimitives(page);
-    const segs = (list: Segment[], color: string) => {
+    const segs = (list: Segment[], color: string, width: number) => {
       if (!list.length) return;
-      ops.push(lib.setStrokingRgbColor(...hexToRgb(color)), lib.setLineWidth(0.5));
+      ops.push(lib.setStrokingRgbColor(...hexToRgb(color)), lib.setLineWidth(width));
       for (const [x1, y1, x2, y2] of list) ops.push(lib.moveTo(x1, y1), lib.lineTo(x2, y2));
       ops.push(lib.stroke());
     };
-    segs(prim.lines, LINE_COLOR);
-    segs(prim.accents, MARGIN_COLOR);
+    segs(prim.lines, LINE_COLOR, 0.5);
+    segs(prim.accents, MARGIN_COLOR, 0.5);
+    segs(prim.structure, STRUCTURE_COLOR, 0.8);
     if (prim.dots.length) {
       ops.push(lib.setFillingRgbColor(...hexToRgb(DOT_COLOR)));
       const r = 1.1;
       for (const [x, y] of prim.dots) ops.push(lib.rectangle(x - r / 2, y - r / 2, r, r));
       ops.push(lib.fill());
     }
+    for (const l of prim.labels) this.textLines([l.text], l.x, l.y, l.size, LABEL_COLOR);
   }
 
   item(item: RenderItem) {
-    const { lib, ops } = this;
     const el = item.el;
-    ops.push(lib.pushGraphicsState(), lib.setGraphicsState(this.state(el.tool === 'highlighter' ? 'Multiply' : 'Normal', el.opacity)));
+    if (el.type === 'stroke') this.stroke(item, el);
+    else if (el.type === 'text') this.text(item, el);
+    else this.image(item, el);
+  }
+
+  private stroke(item: RenderItem, el: StrokeElement) {
+    const { lib, ops } = this;
+    const blend = el.tool === 'highlighter' ? 'Multiply' : 'Normal';
+    // Le grain du crayon n'existe pas en PDF : approché par une légère transparence.
+    const opacity = el.tool === 'pencil' ? Math.min(el.opacity, 0.85) : el.opacity;
+    ops.push(lib.pushGraphicsState(), lib.setGraphicsState(this.state(blend, opacity)));
     const sink = pdfSink(lib, ops);
-    if (el.tool === 'highlighter' || el.dash !== 'solid') {
+    if (isCenterline(el)) {
       ops.push(lib.setStrokingRgbColor(...hexToRgb(el.color)), lib.setLineWidth(el.width), lib.setLineJoin(lib.LineJoinStyle.Round));
-      if (el.tool === 'highlighter') {
-        ops.push(lib.setLineCap(lib.LineCapStyle.Butt));
-      } else if (el.dash === 'dotted') {
-        ops.push(lib.setLineCap(lib.LineCapStyle.Round), lib.setDashPattern([0, el.width * 2.2], 0));
-      } else {
-        ops.push(lib.setLineCap(lib.LineCapStyle.Butt), lib.setDashPattern([el.width * 4, el.width * 2.5], 0));
-      }
-      traceCenterline(item.pts, sink);
+      const flatCap = el.tool === 'highlighter' && !el.shape;
+      ops.push(lib.setLineCap(flatCap ? lib.LineCapStyle.Butt : lib.LineCapStyle.Round));
+      if (el.dash === 'dotted') ops.push(lib.setLineCap(lib.LineCapStyle.Round), lib.setDashPattern([0, el.width * 2.2], 0));
+      else if (el.dash === 'dashed') ops.push(lib.setLineCap(lib.LineCapStyle.Butt), lib.setDashPattern([el.width * 4, el.width * 2.5], 0));
+      if (el.shape) tracePolyline(item.pts, !!el.closed, sink);
+      else traceCenterline(item.pts, sink);
       ops.push(lib.stroke());
     } else {
       ops.push(lib.setFillingRgbColor(...hexToRgb(el.color)));
-      traceOutline(strokeOutline(item.pts, el.brush, el.width, el.pressure, true), sink);
+      traceOutline(strokeOutline(item.pts, el, true), sink);
       ops.push(lib.fill());
     }
     ops.push(lib.popGraphicsState());
+  }
+
+  private text(item: RenderItem, el: TextElement) {
+    const font = this.res.font!;
+    const lines = layoutText(this.res.sanitize(el.text), el.width, (s) => font.widthOfTextAtSize(s, el.fontSize));
+    this.ops.push(this.lib.pushGraphicsState(), this.lib.concatTransformationMatrix(...item.matrix!));
+    this.textLines(lines, el.x, el.y + el.fontSize * BASELINE, el.fontSize, el.color);
+    this.ops.push(this.lib.popGraphicsState());
+  }
+
+  private image(item: RenderItem, el: ImageElement) {
+    const img = this.images.get(el.assetId);
+    if (!img) return;
+    let name = this.xobjects.get(el.assetId);
+    if (!name) {
+      name = this.page.node.newXObject('PapierIm', img.ref);
+      this.xobjects.set(el.assetId, name);
+    }
+    const { lib } = this;
+    // Carré unité de l'image → rectangle (x, y, w, h) du repère Y vers le bas.
+    this.ops.push(
+      lib.pushGraphicsState(),
+      lib.concatTransformationMatrix(...item.matrix!),
+      lib.concatTransformationMatrix(el.width, 0, 0, -el.height, el.x, el.y + el.height),
+      lib.drawObject(name),
+      lib.popGraphicsState(),
+    );
   }
 }
 
@@ -176,6 +276,7 @@ async function rasterizePdfPage(bytes: Uint8Array, pageIndex: number): Promise<U
 export async function exportPdf(doc: Y.Doc, opts: ExportOptions): Promise<Uint8Array> {
   const lib = await import('pdf-lib');
   const out = await lib.PDFDocument.create();
+  const res = new ExportResources(lib, out);
   const title = (roots(doc).meta.get('title') as string) || 'Carnet';
   out.setTitle(title);
   out.setCreator('Papier');
@@ -237,21 +338,33 @@ export async function exportPdf(doc: Y.Doc, opts: ExportOptions): Promise<Uint8A
     }
     if (!pdfPage) {
       pdfPage = out.addPage([page.width, page.height]);
+      // Modèle importé (sous un éventuel fond image) : page de PDF intégrée en vectoriel ou image.
+      const tpl = page.template.kind === 'custom' ? page.template.source : undefined;
+      if (tpl?.kind === 'pdf') {
+        const a = await assetBytes(tpl.assetId);
+        const [emb] = a ? await out.embedPdf(a.bytes, [tpl.pageIndex]).catch(() => [null]) : [null];
+        if (emb) pdfPage.drawPage(emb, { x: 0, y: 0, width: page.width, height: page.height });
+      } else if (tpl?.kind === 'image') {
+        const img = await res.image(tpl.assetId);
+        if (img) pdfPage.drawImage(img, { x: 0, y: 0, width: page.width, height: page.height });
+      }
       if (bg?.kind === 'image') {
-        const a = await assetBytes(bg.assetId);
-        if (a) pdfPage.drawImage(await embedImage(out, a), { x: 0, y: 0, width: page.width, height: page.height });
+        const img = await res.image(bg.assetId);
+        if (img) pdfPage.drawImage(img, { x: 0, y: 0, width: page.width, height: page.height });
       }
     }
 
-    const w = new PageWriter(lib, out, pdfPage);
+    const items = opts.annotations ? [...(pageElements(doc, page.id)?.values() ?? [])].map(makeItem).sort((a, b) => a.z - b.z) : [];
+    const images = new Map<ID, PdfLib.PDFImage | null>();
+    for (const it of items) if (it.el.type === 'image' && !images.has(it.el.assetId)) images.set(it.el.assetId, await res.image(it.el.assetId));
+    if (items.some((it) => it.el.type === 'text') || templatePrimitives(page).labels.length) await res.ensureFont();
+
+    const w = new PageWriter(res, pdfPage, images);
     w.ops.push(lib.pushGraphicsState(), lib.concatTransformationMatrix(...m));
     w.ops.push(lib.rectangle(0, 0, page.width, page.height), lib.clip(), lib.endPath());
     w.template(page);
-    if (opts.annotations) {
-      const items = [...(pageElements(doc, page.id)?.values() ?? [])].map(makeItem).sort((a, b) => a.z - b.z);
-      for (const it of items) if (it.el.tool === 'highlighter') w.item(it);
-      for (const it of items) if (it.el.tool !== 'highlighter') w.item(it);
-    }
+    for (const it of items) if (isHighlight(it.el)) w.item(it);
+    for (const it of items) if (!isHighlight(it.el)) w.item(it);
     w.ops.push(lib.popGraphicsState());
     pdfPage.pushOperators(...w.ops);
   }

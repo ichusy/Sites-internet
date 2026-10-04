@@ -1,7 +1,10 @@
 <script lang="ts">
   import { db } from '../../core/storage/db';
   import { COVER_COLORS, COVER_PATTERNS, PAPER_FORMATS, TEMPLATE_LABELS, defaultTemplate } from '../../core/model/paper';
-  import type { CoverPattern, FolderRecord, ID, TemplateKind } from '../../core/model/types';
+  import type { CoverPattern, FolderRecord, ID, TemplateKind, TemplateRecord } from '../../core/model/types';
+  import { liveQuery } from 'dexie';
+  import { X } from '@lucide/svelte';
+  import { customTemplateRef, deleteTemplate, importTemplate } from '../templates';
   import Cover from '../library/Cover.svelte';
   import Dialog from './Dialog.svelte';
   import { dialogs } from './dialogs.svelte';
@@ -16,6 +19,10 @@
   let coverPattern = $state<CoverPattern>('plain');
   let paperId = $state('a4');
   let templateKind = $state<TemplateKind>('lined');
+  /** Modèle importé choisi (templateKind = 'custom'). */
+  let customId = $state<ID | null>(null);
+  const customsQ = liveQuery(() => db.templates.orderBy('createdAt').toArray());
+  const customs = $derived<TemplateRecord[]>($customsQ ?? []);
   // ── Dossier ──
   let folders = $state<{ folder: FolderRecord; depth: number }[]>([]);
   let folderChoice = $state<ID | null>(null);
@@ -30,6 +37,7 @@
       coverPattern = r.record?.cover.pattern ?? 'plain';
       paperId = 'a4';
       templateKind = r.record?.template.kind ?? 'lined';
+      customId = r.record?.template.source?.templateId ?? null;
     }
     if (r.kind === 'folder') {
       folderChoice = null;
@@ -53,6 +61,28 @@
     folders = out;
   }
 
+  function chosenTemplate(current?: import('../../core/model/types').TemplateRef) {
+    if (templateKind === 'custom') {
+      const t = customs.find((c) => c.id === customId);
+      return t ? customTemplateRef(t) : defaultTemplate('blank');
+    }
+    return current && current.kind === templateKind ? current : defaultTemplate(templateKind);
+  }
+
+  /** Un nouveau carnet sur modèle importé prend le format de ce modèle. */
+  function customPaper() {
+    const t = templateKind === 'custom' ? customs.find((c) => c.id === customId) : undefined;
+    return t ? { width: t.width, height: t.height } : undefined;
+  }
+
+  async function addCustom() {
+    const t = await importTemplate();
+    if (t) {
+      templateKind = 'custom';
+      customId = t.id;
+    }
+  }
+
   function close(submitted: boolean) {
     const r = dialogs.current;
     if (!r) return;
@@ -72,8 +102,8 @@
         r.resolve({
           title: nbTitle.trim() || 'Sans titre',
           cover: { color: coverColor, pattern: coverPattern },
-          paper: r.record?.paper ?? { width: paper.width, height: paper.height },
-          template: r.record && r.record.template.kind === templateKind ? r.record.template : defaultTemplate(templateKind),
+          paper: r.record?.paper ?? customPaper() ?? { width: paper.width, height: paper.height },
+          template: chosenTemplate(r.record?.template),
         });
         break;
       }
@@ -179,6 +209,13 @@
               {#each Object.entries(TEMPLATE_LABELS) as [kind, label] (kind)}
                 <button type="button" class="chip" class:selected={templateKind === kind} onclick={() => (templateKind = kind as TemplateKind)}>{label}</button>
               {/each}
+              {#each customs as t (t.id)}
+                <span class="chip custom-chip" class:selected={templateKind === 'custom' && customId === t.id}>
+                  <button type="button" onclick={() => ((templateKind = 'custom'), (customId = t.id))}>{t.name}</button>
+                  <button type="button" class="chip-x" aria-label="Supprimer le modèle {t.name}" onclick={() => deleteTemplate(t.id)}><X size={12} /></button>
+                </span>
+              {/each}
+              <button type="button" class="chip add-chip" onclick={addCustom}>+ Importer un modèle…</button>
             </div>
           </div>
         </div>
@@ -267,6 +304,24 @@
     background: var(--accent-soft);
     border-color: var(--accent);
     color: var(--accent);
+  }
+  .custom-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding-right: 6px;
+  }
+  .custom-chip button {
+    color: inherit;
+    font-size: 14px;
+  }
+  .chip-x {
+    display: inline-flex;
+    opacity: 0.6;
+  }
+  .add-chip {
+    border-style: dashed;
+    color: var(--muted);
   }
   @media (max-width: 520px) {
     .nb-form {

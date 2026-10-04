@@ -12,7 +12,8 @@ import type { ID, PageData, PageElement, TemplateRef } from './types';
  *                 elements: Y.Map<ID, PageElement>          (objets immuables, remplacés en bloc)
  */
 
-export const SCHEMA_VERSION = 1;
+/** v2 : crayon, formes, texte, images, modèles Cornell/planner/importés (rétrocompatible avec v1). */
+export const SCHEMA_VERSION = 2;
 
 /** Origine des transactions locales : seules celles-ci sont annulables par l'utilisateur. */
 export const LOCAL_ORIGIN = { name: 'local' };
@@ -108,7 +109,7 @@ export function duplicatePage(doc: Y.Doc, pageId: ID): ID | null {
   const dstEls = pageElements(doc, copy.id)!;
   srcEls.forEach((el) => {
     const id = newId();
-    dstEls.set(id, { ...el, id, points: el.points.slice() });
+    dstEls.set(id, el.type === 'stroke' ? { ...el, id, points: el.points.slice() } : { ...el, id });
   });
   return copy.id;
 }

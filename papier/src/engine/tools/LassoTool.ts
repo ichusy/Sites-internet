@@ -1,5 +1,7 @@
 import type { BBox, Mat2D } from '../../core/model/types';
-import { distPointSeg, fractionInside, IDENTITY, scaleAboutMat, translateMat, unionBBox } from '../geometry/geom';
+import {
+  applyMat, distPointSeg, fractionInside, IDENTITY, invertMat, rotateAboutMat, scaleAboutMat, translateMat, unionBBox,
+} from '../geometry/geom';
 import { POINT_STRIDE } from '../../core/model/pointCodec';
 import { drawItem } from '../render/draw';
 import { pageAt, type PageLayout } from '../layout';
@@ -12,12 +14,17 @@ const HANDLE_SIZE = 9;
 /** Un trait est sélectionné si au moins cette proportion de ses points est dans la boucle. */
 const MIN_INSIDE = 0.5;
 const ACCENT = '#3461c9';
+/** Distance (pixels écran) entre le haut du cadre et la poignée de rotation. */
+const ROTATE_OFFSET = 28;
+/** Aimantation de la rotation sur les multiples de 45°, à ±4°. */
+const ROTATE_SNAP = (4 * Math.PI) / 180;
 
 type Mode =
   | { kind: 'idle' }
   | { kind: 'lasso'; page: PageLayout; pts: number[]; length: number }
   | { kind: 'move'; page: PageLayout; sel: Selection; x0: number; y0: number; m: Mat2D }
-  | { kind: 'scale'; page: PageLayout; sel: Selection; ax: number; ay: number; d0: number; s: number; m: Mat2D };
+  | { kind: 'scale'; page: PageLayout; sel: Selection; ax: number; ay: number; d0: number; s: number; m: Mat2D }
+  | { kind: 'rotate'; page: PageLayout; sel: Selection; cx: number; cy: number; a0: number; m: Mat2D };
 
 /**
  * Lasso : entourer pour sélectionner (ou toucher un trait), puis glisser la
@@ -38,7 +45,7 @@ export class LassoTool implements Tool {
 
   /** Vrai pendant un déplacement ou un redimensionnement. */
   get dragging() {
-    return this.mode.kind === 'move' || this.mode.kind === 'scale';
+    return this.mode.kind === 'move' || this.mode.kind === 'scale' || this.mode.kind === 'rotate';
   }
 
   down(i: ToolInput) {
@@ -49,6 +56,13 @@ export class LassoTool implements Tool {
       const zoom = this.ctx.viewport.zoom;
       const lx = i.x - page.x;
       const ly = i.y - page.y;
+      const cx = (bb[0] + bb[2]) / 2;
+      const cy = (bb[1] + bb[3]) / 2;
+      if (Math.hypot(lx - cx, ly - (bb[1] - ROTATE_OFFSET / zoom)) * zoom < HANDLE_HIT) {
+        this.mode = { kind: 'rotate', page, sel, cx, cy, a0: Math.atan2(ly - cy, lx - cx), m: IDENTITY };
+        this.startDrag(sel);
+        return;
+      }
       const corners: [number, number][] = [[bb[0], bb[1]], [bb[2], bb[1]], [bb[2], bb[3]], [bb[0], bb[3]]];
       const hit = corners.findIndex(([cx, cy]) => Math.hypot(cx - lx, cy - ly) * zoom < HANDLE_HIT);
       if (hit >= 0) {
@@ -85,9 +99,15 @@ export class LassoTool implements Tool {
       }
     } else if (m.kind === 'move') {
       m.m = translateMat(lx - m.x0, ly - m.y0);
-    } else {
+    } else if (m.kind === 'scale') {
       m.s = Math.max(0.05, Math.min(20, Math.hypot(lx - m.ax, ly - m.ay) / m.d0));
       m.m = scaleAboutMat(m.s, m.ax, m.ay);
+    } else {
+      let a = Math.atan2(ly - m.cy, lx - m.cx) - m.a0;
+      const q = Math.PI / 4;
+      const snapped = Math.round(a / q) * q;
+      if (Math.abs(a - snapped) < ROTATE_SNAP) a = snapped;
+      m.m = rotateAboutMat(a, m.cx, m.cy);
     }
     this.ctx.renderer.invalidateWet();
   }
@@ -97,7 +117,7 @@ export class LassoTool implements Tool {
     this.mode = { kind: 'idle' };
     if (m.kind === 'lasso') {
       this.finishLasso(m.page, m.pts, m.length);
-    } else if (m.kind === 'move' || m.kind === 'scale') {
+    } else if (m.kind === 'move' || m.kind === 'scale' || m.kind === 'rotate') {
       const s = m.kind === 'scale' ? m.s : 1;
       const moved = m.m.some((v, k) => Math.abs(v - IDENTITY[k]) > 1e-6);
       this.ctx.scene(m.sel.pageId)?.setHidden([]);
@@ -109,7 +129,7 @@ export class LassoTool implements Tool {
 
   cancel() {
     const m = this.mode;
-    if (m.kind === 'move' || m.kind === 'scale') {
+    if (m.kind === 'move' || m.kind === 'scale' || m.kind === 'rotate') {
       this.ctx.scene(m.sel.pageId)?.setHidden([]);
       this.ctx.renderer.invalidate();
     }
@@ -151,6 +171,13 @@ export class LassoTool implements Tool {
   private pickAt(scene: PageScene, x: number, y: number, tol: number): string[] {
     const hits = scene.query([x - tol, y - tol, x + tol, y + tol]).sort((a, b) => b.z - a.z);
     for (const item of hits) {
+      if (item.el.type !== 'stroke') {
+        // Texte, image : toucher à l'intérieur du rectangle (transformé).
+        const [u, v] = applyMat(invertMat(item.matrix!), x, y);
+        const el = item.el;
+        if (u >= el.x - tol && u <= el.x + el.width + tol && v >= el.y - tol && v <= el.y + el.height + tol) return [item.id];
+        continue;
+      }
       const pts = item.pts;
       const thr = tol + strokeHalfWidth(item.el);
       const n = pts.length / POINT_STRIDE;
@@ -190,7 +217,7 @@ export class LassoTool implements Tool {
     const scene = sel && this.ctx.scene(sel.pageId);
     const bb = this.selectionBBox(sel);
     if (!sel || !page || !scene || !bb) return;
-    const dragM = m.kind === 'move' || m.kind === 'scale' ? m.m : IDENTITY;
+    const dragM = m.kind === 'move' || m.kind === 'scale' || m.kind === 'rotate' ? m.m : IDENTITY;
 
     // Aperçu des éléments déplacés (masqués du calque principal pendant le geste).
     if (dragM !== IDENTITY) {
@@ -198,7 +225,7 @@ export class LassoTool implements Tool {
       c.transform(...dragM);
       for (const id of sel.ids) {
         const item = scene.items.get(id);
-        if (item) drawItem(c, item);
+        if (item) drawItem(c, item, this.ctx.renderer.resources);
       }
     }
 
@@ -222,5 +249,22 @@ export class LassoTool implements Tool {
     c.fillStyle = ACCENT;
     const h = HANDLE_SIZE * vp.dpr;
     for (const [x, y] of corners) c.fillRect(x - h / 2, y - h / 2, h, h);
+
+    // Poignée de rotation, au-dessus du milieu du bord supérieur (suit la rotation en cours).
+    const topX = (corners[0][0] + corners[1][0]) / 2;
+    const topY = (corners[0][1] + corners[1][1]) / 2;
+    const midX = (corners[0][0] + corners[2][0]) / 2;
+    const midY = (corners[0][1] + corners[2][1]) / 2;
+    const len = Math.hypot(topX - midX, topY - midY) || 1;
+    const hx = topX + ((topX - midX) / len) * ROTATE_OFFSET * vp.dpr;
+    const hy = topY + ((topY - midY) / len) * ROTATE_OFFSET * vp.dpr;
+    c.lineWidth = 1.5 * vp.dpr;
+    c.beginPath();
+    c.moveTo(topX, topY);
+    c.lineTo(hx, hy);
+    c.stroke();
+    c.beginPath();
+    c.arc(hx, hy, 6 * vp.dpr, 0, Math.PI * 2);
+    c.fill();
   }
 }

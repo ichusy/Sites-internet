@@ -2,15 +2,15 @@ import { strFromU8, strToU8, unzipSync, zipSync, type Zippable } from 'fflate';
 import * as Y from 'yjs';
 import { newId } from '../core/model/ids';
 import { docToJson, jsonToDoc, type NotebookJson } from '../core/model/serialize';
-import { listPages, roots } from '../core/model/notebookDoc';
-import type { AssetRecord, FolderRecord, ID, NotebookRecord } from '../core/model/types';
+import { listPages, pageElements, roots } from '../core/model/notebookDoc';
+import type { AssetRecord, FolderRecord, ID, NotebookRecord, TemplateRecord } from '../core/model/types';
 import { db } from '../core/storage/db';
 import { createNotebookDoc, loadNotebookDoc } from '../core/storage/notebookStore';
 
 /**
  * Archive .papier = fichier zip :
  *   manifest.json            { format: "papier-archive", version, exportedAt }
- *   library.json             { folders: FolderRecord[], notebooks: NotebookRecord[] }
+ *   library.json             { folders, notebooks, templates } (modèles importés : sauvegarde complète)
  *   notebooks/<id>.json      contenu lisible (NotebookJson, voir FORMAT.md)
  *   notebooks/<id>.ydoc      état Yjs complet (restauration sans perte)
  *   assets/<sha256>.<ext>    fichiers importés (PDF, images)
@@ -29,9 +29,14 @@ const EXT: Record<string, string> = {
   'image/bmp': 'bmp',
 };
 
+/** Fichiers utilisés par un carnet : fonds de page, modèles importés, images et autocollants. */
 function assetIdsOf(doc: Y.Doc): Set<ID> {
   const ids = new Set<ID>();
-  for (const p of listPages(doc)) if (p.background) ids.add(p.background.assetId);
+  for (const p of listPages(doc)) {
+    if (p.background) ids.add(p.background.assetId);
+    if (p.template.source) ids.add(p.template.source.assetId);
+    for (const el of pageElements(doc, p.id)?.values() ?? []) if (el.type === 'image') ids.add(el.assetId);
+  }
   return ids;
 }
 
@@ -40,7 +45,8 @@ export async function exportArchive(notebookIds: ID[], includeFolders: boolean):
   const files: Zippable = {};
   const notebooks = (await db.notebooks.bulkGet(notebookIds)).filter((n): n is NotebookRecord => !!n);
   const folders: FolderRecord[] = includeFolders ? await db.folders.toArray() : [];
-  const assetIds = new Set<ID>();
+  const templates: TemplateRecord[] = includeFolders ? await db.templates.toArray() : [];
+  const assetIds = new Set<ID>(templates.map((t) => t.assetId));
 
   for (const nb of notebooks) {
     const doc = await loadNotebookDoc(nb.id);
@@ -64,7 +70,7 @@ export async function exportArchive(notebookIds: ID[], includeFolders: boolean):
   }
 
   files['manifest.json'] = strToU8(JSON.stringify({ format: ARCHIVE_FORMAT, version: ARCHIVE_VERSION, exportedAt: new Date().toISOString() }, null, 2));
-  files['library.json'] = strToU8(JSON.stringify({ folders, notebooks }, null, 2));
+  files['library.json'] = strToU8(JSON.stringify({ folders, notebooks, templates }, null, 2));
   files['assets.json'] = strToU8(JSON.stringify(assetIndex, null, 2));
 
   const zip = zipSync(files, { level: 6 });
@@ -87,7 +93,11 @@ export async function importArchive(data: Blob, targetFolder: ID | null): Promis
   if (manifest?.format !== ARCHIVE_FORMAT) throw new Error('Ce fichier n’est pas une archive Papier.');
   if (manifest.version > ARCHIVE_VERSION) throw new Error('Archive créée par une version plus récente de Papier.');
 
-  const library = JSON.parse(text('library.json') ?? '{"folders":[],"notebooks":[]}') as { folders: FolderRecord[]; notebooks: NotebookRecord[] };
+  const library = JSON.parse(text('library.json') ?? '{"folders":[],"notebooks":[]}') as {
+    folders: FolderRecord[];
+    notebooks: NotebookRecord[];
+    templates?: TemplateRecord[];
+  };
   const assetIndex = JSON.parse(text('assets.json') ?? '[]') as { id: ID; mime: string; size: number; file: string }[];
 
   // Fichiers d'abord : les carnets y font référence.
@@ -97,6 +107,9 @@ export async function importArchive(data: Blob, targetFolder: ID | null): Promis
     const rec: AssetRecord = { id: a.id, mime: a.mime, size: bytes.byteLength, blob: new Blob([bytes as Uint8Array<ArrayBuffer>], { type: a.mime }), createdAt: Date.now() };
     await db.assets.put(rec);
   }
+
+  // Modèles importés (ceux déjà présents sont conservés tels quels).
+  for (const t of library.templates ?? []) if (!(await db.templates.get(t.id))) await db.templates.add(t);
 
   // Dossiers, en recréant l'arborescence avec de nouveaux identifiants.
   const folderMap = new Map<ID, ID>();

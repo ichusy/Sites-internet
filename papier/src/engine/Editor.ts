@@ -4,7 +4,7 @@ import {
   pageElements, readPage, removeElements, roots, setPageTemplate, type ElementsMap, type PageMap,
 } from '../core/model/notebookDoc';
 import { newId, nextZ } from '../core/model/ids';
-import type { ID, Mat2D, PageBackground, PageData, PageElement, TemplateRef } from '../core/model/types';
+import type { ID, ImageElement, Mat2D, PageBackground, PageData, PageElement, TemplateRef, TextElement } from '../core/model/types';
 import type { OpenNotebook } from '../core/storage/notebookStore';
 import { multiplyMat, translateMat } from './geometry/geom';
 import { PointerRouter, type FingerDrawing } from './input/PointerRouter';
@@ -15,7 +15,9 @@ import { PageScene, makeItem } from './scene';
 import { EraserTool } from './tools/EraserTool';
 import { InkTool } from './tools/InkTool';
 import { LassoTool } from './tools/LassoTool';
-import type { Selection, Tool, ToolContext, ToolName, ToolStyles } from './tools/types';
+import { TextTool } from './tools/TextTool';
+import type { Selection, TextEditRequest, Tool, ToolContext, ToolName, ToolStyles } from './tools/types';
+import { canvasMeasure, layoutText, textBlockHeight } from './render/text';
 import { Viewport } from './Viewport';
 
 /** Sélection telle que l'interface l'affiche (rectangle en pixels CSS dans la zone de dessin). */
@@ -65,6 +67,11 @@ export class Editor {
   private selectionListeners = new Set<(s: SelectionInfo | null) => void>();
   private pasteCount = 0;
   readonly backgrounds: BackgroundStore;
+  private textListeners = new Set<(req: TextEditRequest | null) => void>();
+  private toolListeners = new Set<(tool: ToolName) => void>();
+  private editing: TextEditRequest | null = null;
+  /** Outil à reprendre quand la sélection faite par « entourer puis toucher » est levée. */
+  private returnTool: ToolName | null = null;
 
   tool: ToolName = 'pen';
   fingerDrawing: FingerDrawing = 'auto';
@@ -99,13 +106,23 @@ export class Editor {
       selection: () => this.sel,
       setSelection: (sel) => this.setSelection(sel),
       transformSelection: (m, s) => this.transformSelection(m, s),
+      undoLast: () => this.nb.undo.undo(),
+      selectWithLasso: (sel) => {
+        const back = this.tool;
+        this.requestTool('lasso');
+        this.returnTool = back;
+        this.setSelection(sel);
+      },
+      editText: (req) => this.startTextEdit(req),
     };
     this.lasso = new LassoTool(ctx);
     this.tools = {
       pen: new InkTool(ctx, 'pen'),
+      pencil: new InkTool(ctx, 'pencil'),
       highlighter: new InkTool(ctx, 'highlighter'),
       eraser: new EraserTool(ctx),
       lasso: this.lasso,
+      text: new TextTool(ctx),
     };
     this.renderer.overlay = (c) => this.lasso.drawOverlay(c);
 
@@ -144,6 +161,8 @@ export class Editor {
     this.renderer.destroy();
     this.backgrounds.destroy();
     this.selectionListeners.clear();
+    this.textListeners.clear();
+    this.toolListeners.clear();
     clearTimeout(this.saveViewTimer);
     this.main.remove();
     this.wet.remove();
@@ -186,8 +205,111 @@ export class Editor {
     if (tool === this.tool) return;
     this.tools[this.tool].cancel();
     this.tools[this.tool].hover?.(null);
-    if (this.tool === 'lasso') this.setSelection(null);
+    for (const t of Object.values(this.tools)) (t as InkTool).resetGestures?.();
+    this.commitTextEdit();
+    this.returnTool = null;
     this.tool = tool;
+    if (tool !== 'lasso') this.setSelection(null);
+  }
+
+  /** L'interface est prévenue quand le moteur change lui-même d'outil. */
+  onToolChange(fn: (tool: ToolName) => void): () => void {
+    this.toolListeners.add(fn);
+    return () => this.toolListeners.delete(fn);
+  }
+
+  private requestTool(tool: ToolName) {
+    this.setTool(tool);
+    for (const fn of this.toolListeners) fn(tool);
+  }
+
+  // ── Texte ───────────────────────────────────────────────
+
+  /** Notifié quand une zone de texte entre (ou sort) en édition. */
+  onTextEdit(fn: (req: TextEditRequest | null) => void): () => void {
+    this.textListeners.add(fn);
+    return () => this.textListeners.delete(fn);
+  }
+
+  private lastTextCommit = 0;
+
+  private startTextEdit(req: TextEditRequest) {
+    // Toucher la page juste pour terminer une saisie ne crée pas de nouvelle zone.
+    if (!req.id && performance.now() - this.lastTextCommit < 350) return;
+    this.commitTextEdit();
+    this.editing = req;
+    if (req.id) this.scenes.get(req.pageId)?.setHidden([req.id]);
+    this.renderer.invalidate();
+    for (const fn of this.textListeners) fn(req);
+  }
+
+  /** Position écran (pixels CSS) du coin haut-gauche d'une zone en édition, et échelle. */
+  textEditorFrame(req: TextEditRequest) {
+    const page = this.layout.pages.find((l) => l.id === req.pageId);
+    if (!page) return null;
+    const m = req.transform ?? [1, 0, 0, 1, 0, 0];
+    const [x, y] = [m[0] * req.x + m[2] * req.y + m[4], m[1] * req.x + m[3] * req.y + m[5]];
+    const [sx, sy] = this.viewport.toScreen(page.x + x, page.y + y);
+    const scale = Math.hypot(m[0], m[1]);
+    return { x: sx, y: sy, zoom: this.viewport.zoom * scale, angle: Math.atan2(m[1], m[0]) };
+  }
+
+  /** Valide le texte en cours d'édition (vide = suppression de la zone). */
+  commitTextEdit(text?: string) {
+    const req = this.editing;
+    if (!req) return;
+    this.editing = null;
+    this.lastTextCommit = performance.now();
+    const value = (text ?? req.text).replace(/\s+$/, '');
+    const scene = this.scenes.get(req.pageId);
+    scene?.setHidden([]);
+    const lines = layoutText(value, req.width, canvasMeasure(req.fontSize));
+    const height = textBlockHeight(lines.length, req.fontSize);
+    if (req.id) {
+      const id = req.id;
+      const old = scene?.items.get(id)?.el as TextElement | undefined;
+      if (!value) this.transact((doc) => removeElements(doc, req.pageId, [id]));
+      else if (old && (old.text !== value || old.color !== req.color || old.fontSize !== req.fontSize)) {
+        const next: TextElement = { ...old, text: value, color: req.color, fontSize: req.fontSize, height };
+        next.bbox = makeItem(next).bbox;
+        this.transact((doc) => addElements(doc, req.pageId, [next]));
+      }
+    } else if (value) {
+      const el: TextElement = {
+        type: 'text', id: newId(), z: nextZ(), bbox: [0, 0, 0, 0],
+        x: req.x, y: req.y, width: req.width, height, text: value, fontSize: req.fontSize, color: req.color,
+      };
+      el.bbox = makeItem(el).bbox;
+      this.transact((doc) => addElements(doc, req.pageId, [el]));
+    }
+    this.renderer.invalidate();
+    for (const fn of this.textListeners) fn(null);
+  }
+
+  /** Met à jour le texte en cours d'édition (sans l'enregistrer). */
+  updateTextEdit(patch: Partial<Pick<TextEditRequest, 'text' | 'color' | 'fontSize'>>) {
+    if (this.editing) Object.assign(this.editing, patch);
+  }
+
+  // ── Images et autocollants ─────────────────────────────
+
+  /** Pose une image (déjà enregistrée) au centre de la zone visible de la page courante. */
+  insertImage(assetId: ID, naturalWidth: number, naturalHeight: number, opts: { sticker?: boolean; width?: number } = {}) {
+    const page = this.layout.pages[this.currentPageIndex()];
+    if (!page) return;
+    const vis = this.viewport.visibleWorld();
+    const cx = Math.min(Math.max((vis[0] + vis[2]) / 2, page.x), page.x + page.width) - page.x;
+    const cy = Math.min(Math.max((vis[1] + vis[3]) / 2, page.y), page.y + page.height) - page.y;
+    const width = opts.width ?? Math.min(page.width * 0.6, naturalWidth * 0.75);
+    const height = (width * naturalHeight) / naturalWidth;
+    const el: ImageElement = {
+      type: 'image', id: newId(), z: nextZ(), bbox: [0, 0, 0, 0], assetId,
+      x: cx - width / 2, y: cy - height / 2, width, height, ...(opts.sticker ? { sticker: true } : {}),
+    };
+    el.bbox = makeItem(el).bbox;
+    this.transact((doc) => addElements(doc, page.id, [el]));
+    this.requestTool('lasso');
+    this.setSelection({ pageId: page.id, ids: [el.id] });
   }
 
   get doc(): Y.Doc {
@@ -225,6 +347,12 @@ export class Editor {
     this.sel = sel && sel.ids.length ? sel : null;
     this.renderer.invalidateWet();
     this.emitSelection();
+    // Sélection faite au stylo (« entourer puis toucher ») levée : retour à l'outil d'origine.
+    if (!this.sel && this.returnTool && this.tool === 'lasso') {
+      const back = this.returnTool;
+      this.returnTool = null;
+      queueMicrotask(() => this.requestTool(back));
+    }
   }
 
   clearSelection() {
@@ -255,14 +383,17 @@ export class Editor {
 
   private transformSelection(m: Mat2D, widthScale: number) {
     this.updateSelected((el) => {
-      const next: PageElement = { ...el, transform: el.transform ? multiplyMat(m, el.transform) : m, width: el.width * widthScale };
+      // Traits : les points sont transformés, l'épaisseur suit l'agrandissement.
+      // Texte et images : la matrice porte déjà l'échelle.
+      const next = { ...el, transform: el.transform ? multiplyMat(m, el.transform) : m } as PageElement;
+      if (next.type === 'stroke') next.width = el.type === 'stroke' ? el.width * widthScale : next.width;
       next.bbox = makeItem(next).bbox;
       return next;
     });
   }
 
   recolorSelection(color: string) {
-    this.updateSelected((el) => ({ ...el, color }));
+    this.updateSelected((el) => (el.type === 'image' ? el : { ...el, color }));
   }
 
   deleteSelection() {
@@ -310,9 +441,9 @@ export class Editor {
           ...el,
           id: newId(),
           z: nextZ(),
-          points: el.points.slice(),
           transform: el.transform ? multiplyMat(shift, el.transform) : shift,
-        };
+        } as PageElement;
+        if (next.type === 'stroke') next.points = next.points.slice();
         next.bbox = makeItem(next).bbox;
         return next;
       });
@@ -381,9 +512,13 @@ export class Editor {
 
   private onBackgroundReady(bg: PageBackground) {
     for (const scene of this.scenes.values()) {
-      const b = scene.page.background;
-      if (!b || b.assetId !== bg.assetId) continue;
-      if (b.kind === 'pdf' && bg.kind === 'pdf' && b.pageIndex !== bg.pageIndex) continue;
+      const { page } = scene;
+      const b = page.background;
+      const t = page.template.source;
+      const usesBg = b?.assetId === bg.assetId && !(b.kind === 'pdf' && bg.kind === 'pdf' && b.pageIndex !== bg.pageIndex);
+      const usesTpl = t?.assetId === bg.assetId;
+      const usesImage = bg.kind === 'image' && [...scene.items.values()].some((i) => i.el.type === 'image' && i.el.assetId === bg.assetId);
+      if (!usesBg && !usesTpl && !usesImage) continue;
       scene.markFull();
       scene.version++;
       for (const fn of this.pageListeners) fn(scene.page.id);

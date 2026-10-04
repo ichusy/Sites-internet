@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import type { NotebookRecord } from '../../core/model/types';
   import { db } from '../../core/storage/db';
   import { updateNotebook } from '../../core/storage/library';
@@ -10,6 +10,11 @@
   import { exportNotebookArchive, exportNotebookPdf, pagesForInsertion } from '../actions';
   import type { MenuItem } from '../common/Menu.svelte';
   import SelectionBar from './SelectionBar.svelte';
+  import TextEditor from './TextEditor.svelte';
+  import type { TextEditRequest } from '../../engine/tools/types';
+  import { putAsset } from '../../core/storage/assets';
+  import { stickerAsset, type Sticker } from '../stickers';
+  import { withBusy } from '../common/toast.svelte';
   import type { ToolName } from '../../engine/tools/types';
   import { askText } from '../common/dialogs.svelte';
   import { links } from '../router.svelte';
@@ -32,6 +37,8 @@
   let selection = $state<SelectionInfo | null>(null);
   let canPaste = $state(hasClipboard());
   let dropping = $state(false);
+  let textReq = $state<TextEditRequest | null>(null);
+  let textarea = $state<HTMLTextAreaElement>();
 
   function readPanelPref() {
     try {
@@ -67,9 +74,21 @@
         canPaste = hasClipboard();
       });
       const offSel = ed.onSelection((s) => (selection = s));
+      const offTool = ed.onToolChange((t) => (tool = t));
+      const offText = ed.onTextEdit((req) => {
+        textReq = req ? { ...req } : null;
+        if (!req || !textarea) return;
+        // Synchrone, pendant le geste : nécessaire pour ouvrir le clavier sur iPad.
+        settings.styles.text.color = req.color;
+        settings.styles.text.size = req.fontSize;
+        textarea.value = req.text;
+        textarea.focus();
+      });
       unsub = () => {
         offState();
         offSel();
+        offTool();
+        offText();
       };
       editor = ed;
     })();
@@ -119,6 +138,41 @@
     const ed = editor;
     if (ed && title) ed.setTitle(title);
   });
+
+  // Couleur et taille choisies dans la barre d'outils pendant la saisie : appliquées à la zone.
+  $effect(() => {
+    const { color, size } = settings.styles.text;
+    untrack(() => {
+      if (!editor || !textReq || (textReq.color === color && textReq.fontSize === size)) return;
+      editor.updateTextEdit({ color, fontSize: size });
+      textReq = { ...textReq, color, fontSize: size };
+    });
+  });
+
+  /** La sélection est-elle (au moins en partie) à l'écran ? */
+  function selectionVisible(info: SelectionInfo) {
+    const w = container?.clientWidth ?? 0;
+    const h = container?.clientHeight ?? 0;
+    const r = info.rect;
+    return r.x + r.width > 0 && r.y + r.height > 0 && r.x < w && r.y < h;
+  }
+
+  async function insertImage() {
+    const files = await pickFiles('image/*', true);
+    await withBusy('Insertion…', async () => {
+      for (const f of files) {
+        const bmp = await createImageBitmap(f);
+        const { width, height } = bmp;
+        bmp.close();
+        editor?.insertImage(await putAsset(f), width, height);
+      }
+    });
+  }
+
+  async function insertSticker(s: Sticker) {
+    const id = await stickerAsset(s);
+    editor?.insertImage(id, 256, 256, { sticker: true, width: 56 });
+  }
 
   async function paste() {
     if (!editor) return;
@@ -184,6 +238,8 @@
       editor.clearSelection();
     } else if (!mod && !e.altKey) {
       if (key === 'p') tool = 'pen';
+      else if (key === 'c') tool = 'pencil';
+      else if (key === 't') tool = 'text';
       else if (key === 'l') tool = 'lasso';
       else if (key === 'h') tool = 'highlighter';
       else if (key === 'e') tool = 'eraser';
@@ -218,6 +274,8 @@
       {canPaste}
       onpaste={paste}
       {docItems}
+      oninsertimage={insertImage}
+      onsticker={insertSticker}
     />
     <div class="workspace">
       <div
@@ -236,8 +294,11 @@
         ondragleave={() => (dropping = false)}
         ondrop={onDrop}
       ></div>
-      {#if editor && selection && tool === 'lasso'}
+      {#if editor && selection && tool === 'lasso' && selectionVisible(selection)}
         <SelectionBar {editor} info={selection} />
+      {/if}
+      {#if editor}
+        <TextEditor {editor} req={textReq} {es} bind:textarea />
       {/if}
       {#if editor && pagesOpen}
         <PagesPanel {editor} current={es.currentPage} pageCount={es.pageCount} />
@@ -272,6 +333,9 @@
   }
   .canvas-host[data-tool='lasso'] {
     cursor: default;
+  }
+  .canvas-host[data-tool='text'] {
+    cursor: text;
   }
   .canvas-host.dropping {
     outline: 3px dashed var(--accent);

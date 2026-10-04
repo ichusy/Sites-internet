@@ -5,7 +5,7 @@ import type { Renderer } from '../render/Renderer';
 import type { PageScene } from '../scene';
 import type { Viewport } from '../Viewport';
 
-export type ToolName = 'pen' | 'highlighter' | 'eraser' | 'lasso';
+export type ToolName = 'pen' | 'pencil' | 'highlighter' | 'eraser' | 'lasso' | 'text';
 
 /** Éléments sélectionnés au lasso (toujours sur une seule page). */
 export interface Selection {
@@ -18,6 +18,27 @@ export interface PenStyle {
   color: string;
   width: number;
   dash: DashStyle;
+}
+
+export interface PencilStyle {
+  color: string;
+  width: number;
+}
+
+export interface TextStyle {
+  color: string;
+  /** Taille de police en points. */
+  size: number;
+}
+
+/** Gestes optionnels (désactivables dans les réglages de l'outil). */
+export interface GestureSettings {
+  /** Maintenir la pointe immobile en fin de tracé : ligne, cercle, rectangle… */
+  shapeRecognition: boolean;
+  /** Gribouiller par-dessus des traits pour les effacer. */
+  scribbleErase: boolean;
+  /** Entourer avec le stylo puis toucher l'intérieur pour sélectionner. */
+  loopSelect: boolean;
 }
 
 export interface HighlighterStyle {
@@ -34,8 +55,11 @@ export interface EraserStyle {
 
 export interface ToolStyles {
   pen: PenStyle;
+  pencil: PencilStyle;
   highlighter: HighlighterStyle;
   eraser: EraserStyle;
+  text: TextStyle;
+  gestures: GestureSettings;
 }
 
 /** Un échantillon de pointeur, en coordonnées monde (x, y) et écran (sx, sy). */
@@ -66,6 +90,27 @@ export interface ToolContext {
   setSelection(sel: Selection | null): void;
   /** Applique une transformation (et un facteur d'épaisseur) à la sélection, en une étape annulable. */
   transformSelection(m: Mat2D, widthScale: number): void;
+  /** Annule la dernière action (geste « entourer puis toucher »). */
+  undoLast(): void;
+  /** Bascule sur le lasso avec ces éléments sélectionnés, puis revient à l'outil courant. */
+  selectWithLasso(sel: Selection): void;
+  /** Demande l'édition d'une zone de texte (existante ou nouvelle). */
+  editText(req: TextEditRequest): void;
+}
+
+/** Zone de texte à éditer, en coordonnées de page. */
+export interface TextEditRequest {
+  pageId: ID;
+  /** null pour une nouvelle zone. */
+  id: ID | null;
+  x: number;
+  y: number;
+  width: number;
+  fontSize: number;
+  color: string;
+  text: string;
+  /** Transformation de la zone existante (rotation, échelle). */
+  transform?: Mat2D;
 }
 
 export interface Tool {

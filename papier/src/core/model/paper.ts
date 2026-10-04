@@ -17,11 +17,13 @@ export const PAPER_FORMATS: PaperFormat[] = [
   { id: 'letter', label: 'Lettre US', width: 612, height: 792 },
 ];
 
-export const TEMPLATE_LABELS: Record<TemplateKind, string> = {
+export const TEMPLATE_LABELS: Record<Exclude<TemplateKind, 'custom'>, string> = {
   blank: 'Blanc',
   lined: 'Ligné',
   grid: 'Quadrillé',
   dots: 'Pointillé',
+  cornell: 'Cornell',
+  planner: 'Semainier',
 };
 
 export function defaultTemplate(kind: TemplateKind): TemplateRef {
@@ -31,6 +33,10 @@ export function defaultTemplate(kind: TemplateKind): TemplateRef {
     case 'grid':
     case 'dots':
       return { kind, spacing: 5 * MM };
+    case 'cornell':
+      return { kind, spacing: 7 * MM };
+    case 'planner':
+      return { kind, spacing: 7 * MM };
     default:
       return { kind: 'blank', spacing: 0 };
   }

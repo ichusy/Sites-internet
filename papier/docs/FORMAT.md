@@ -1,4 +1,4 @@
-# Format des données (schéma v1)
+# Format des données (schéma v2)
 
 Toutes les données sont stockées localement dans IndexedDB. Ce document décrit
 leur structure pour qu'elles restent lisibles sans l'application. Les archives
@@ -35,6 +35,11 @@ leur structure pour qu'elles restent lisibles sans l'application. Les archives
 | template | TemplateRef | modèle des nouvelles pages |
 | createdAt, updatedAt, openedAt | number | |
 
+### `templates` (modèles de page importés)
+`{ id, name, assetId, kind: "image" | "pdf", pageIndex, width, height, createdAt }`.
+Une page qui utilise un tel modèle en garde une copie autonome dans son
+`template.source` (voir plus bas) : supprimer le modèle de la liste ne casse rien.
+
 ### `assets`
 Fichiers binaires (PDF, images, audio) adressés par leur empreinte SHA-256 :
 `{ id, mime, size, blob, createdAt }`. Un même fichier importé deux fois n'est
@@ -56,7 +61,9 @@ pages      Y.Map<string, Y.Map>     une Y.Map par page :
              id         string
              width      number
              height     number
-             template   { kind: "blank"|"lined"|"grid"|"dots", spacing: number }
+             template   { kind: "blank"|"lined"|"grid"|"dots"|"cornell"|"planner"|"custom",
+                          spacing: number,
+                          source?: { assetId, kind: "image"|"pdf", pageIndex, templateId?, name? } }  // kind = custom
              background { kind: "pdf", assetId, pageIndex } | { kind: "image", assetId }   (optionnel)
              elements   Y.Map<string, Element>
 ```
@@ -79,6 +86,42 @@ pages      Y.Map<string, Y.Map>     une Y.Map par page :
   "transform": [a,b,c,d,e,f], // optionnel : matrice appliquée aux points (x' = a·x + c·y + e, y' = b·x + d·y + f)
   "bbox": [minX, minY, maxX, maxY],
   "t0": 1759600000000         // horodatage du premier point
+}
+```
+
+Champs supplémentaires (v2), optionnels :
+
+| Champ | Sens |
+|---|---|
+| `tool: "pencil"` | crayon (contour rempli d'un grain ; en PDF : légère transparence) |
+| `shape` | `"line" \| "ellipse" \| "rect" \| "triangle" \| "polygon"` : forme reconnue ; les points sont alors les **sommets**, reliés par des segments droits et tracés comme une ligne de largeur `width` |
+| `closed` | la forme est fermée (dernier sommet relié au premier) |
+
+### Élément `text`
+
+```jsonc
+{
+  "type": "text", "id": "…", "z": 1759600000000.0,
+  "x": 50, "y": 300, "width": 300,   // zone (repère local), le texte revient à la ligne à `width`
+  "height": 40,                      // hauteur calculée à la saisie
+  "text": "Mitochondrie…\nDeuxième ligne",
+  "fontSize": 14, "color": "#2f5fd0",
+  "transform": [a,b,c,d,e,f],        // optionnel : rotation / échelle / déplacement
+  "bbox": [minX, minY, maxX, maxY]
+}
+```
+
+Police : Helvetica (ou équivalent), interligne 1,3 × `fontSize`, ligne de base de
+la ligne *i* à `y + i·1,3·fontSize + fontSize`.
+
+### Élément `image`
+
+```jsonc
+{
+  "type": "image", "id": "…", "z": …, "assetId": "<sha256>",
+  "x": 100, "y": 100, "width": 144, "height": 144,   // l'image remplit ce rectangle
+  "sticker": true,                                   // optionnel : autocollant intégré
+  "transform": [a,b,c,d,e,f], "bbox": […]
 }
 ```
 
@@ -109,11 +152,11 @@ Fichier zip :
 | Chemin | Contenu |
 |---|---|
 | `manifest.json` | `{ "format": "papier-archive", "version": 1, "exportedAt": "…" }` |
-| `library.json` | `{ "folders": FolderRecord[], "notebooks": NotebookRecord[] }` |
+| `library.json` | `{ "folders": FolderRecord[], "notebooks": NotebookRecord[], "templates"?: TemplateRecord[] }` |
 | `notebooks/<id>.json` | contenu lisible du carnet (voir ci-dessous) |
 | `notebooks/<id>.ydoc` | état Yjs complet (`Y.encodeStateAsUpdate`), pour une restauration sans perte |
 | `assets.json` | `[{ id, mime, size, file }]` |
-| `assets/<sha256>.<ext>` | fichiers importés (PDF, images), à l'identique |
+| `assets/<sha256>.<ext>` | fichiers utilisés (fonds PDF/images, modèles importés, images et autocollants), à l'identique |
 
 `notebooks/<id>.json` :
 
@@ -140,3 +183,7 @@ de nouveaux identifiants ; rien d'existant n'est écrasé.
 
 Toute modification incompatible incrémente `meta.schemaVersion` et s'accompagne
 d'une migration automatique à l'ouverture du carnet.
+
+- **v1** : traits (stylo, surligneur), fonds PDF/images.
+- **v2** : crayon, formes, texte, images/autocollants, modèles Cornell, semainier
+  et importés. Un carnet v1 se lit tel quel en v2 (champs uniquement ajoutés).

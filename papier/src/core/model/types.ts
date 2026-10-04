@@ -15,15 +15,26 @@ export type Mat2D = [number, number, number, number, number, number];
 /** [minX, minY, maxX, maxY] */
 export type BBox = [number, number, number, number];
 
-export type InkTool = 'pen' | 'highlighter';
+export type InkTool = 'pen' | 'pencil' | 'highlighter';
 export type Brush = 'fountain' | 'ballpoint' | 'brush';
 export type DashStyle = 'solid' | 'dashed' | 'dotted';
+export type ShapeKind = 'line' | 'ellipse' | 'rect' | 'triangle' | 'polygon';
 
-export interface StrokeElement {
-  type: 'stroke';
+interface ElementBase {
   id: ID;
   /** Ordre d'empilement : plus grand = dessiné plus tard. */
   z: number;
+  /** Boîte englobante en coordonnées de page, transformation et épaisseur incluses. */
+  bbox: BBox;
+  /**
+   * Transformation (déplacement, échelle, rotation par le lasso).
+   * Traits : appliquée aux points. Texte et images : appliquée au rectangle local.
+   */
+  transform?: Mat2D;
+}
+
+export interface StrokeElement extends ElementBase {
+  type: 'stroke';
   tool: InkTool;
   brush: Brush;
   /** Couleur CSS hexadécimale (#rrggbb). */
@@ -36,23 +47,50 @@ export interface StrokeElement {
   pressure: boolean;
   /** Points encodés, voir pointCodec.ts : float32 LE [x, y, pression, t] par point. */
   points: Uint8Array;
-  /** Transformation appliquée aux points (déplacement/rotation par le lasso). */
-  transform?: Mat2D;
-  /** Boîte englobante en coordonnées de page, transformation et épaisseur incluses. */
-  bbox: BBox;
   /** Horodatage absolu (ms depuis l'époque Unix) du premier point. */
   t0: number;
+  /** Forme reconnue : les points sont alors les sommets, reliés par des segments droits. */
+  shape?: ShapeKind;
+  /** Forme fermée (le dernier sommet est relié au premier). */
+  closed?: boolean;
 }
 
-/** Union de tous les éléments posables sur une page (texte, images… aux étapes suivantes). */
-export type PageElement = StrokeElement;
+export interface TextElement extends ElementBase {
+  type: 'text';
+  /** Coin haut-gauche et largeur de la zone (le texte revient à la ligne). */
+  x: number;
+  y: number;
+  width: number;
+  /** Hauteur calculée à la saisie (pour la boîte englobante). */
+  height: number;
+  text: string;
+  /** Taille de police en points. */
+  fontSize: number;
+  color: string;
+}
 
-export type TemplateKind = 'blank' | 'lined' | 'grid' | 'dots';
+export interface ImageElement extends ElementBase {
+  type: 'image';
+  assetId: ID;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** Autocollant (image intégrée à l'application) plutôt que photo importée. */
+  sticker?: boolean;
+}
+
+/** Union de tous les éléments posables sur une page. */
+export type PageElement = StrokeElement | TextElement | ImageElement;
+
+export type TemplateKind = 'blank' | 'lined' | 'grid' | 'dots' | 'cornell' | 'planner' | 'custom';
 
 export interface TemplateRef {
   kind: TemplateKind;
   /** Espacement des lignes / carreaux / points, en points. */
   spacing: number;
+  /** Modèle importé (kind = 'custom') : image ou page de PDF étirée sur la page. */
+  source?: { assetId: ID; kind: 'image' | 'pdf'; pageIndex: number; templateId?: ID; name?: string };
 }
 
 export type PageBackground =
@@ -102,6 +140,19 @@ export interface NotebookRecord {
   createdAt: number;
   updatedAt: number;
   openedAt: number;
+}
+
+/** Modèle de page importé par l'utilisateur. */
+export interface TemplateRecord {
+  id: ID;
+  name: string;
+  assetId: ID;
+  kind: 'image' | 'pdf';
+  pageIndex: number;
+  /** Format d'origine (points), proposé pour les nouvelles pages. */
+  width: number;
+  height: number;
+  createdAt: number;
 }
 
 export interface AssetRecord {

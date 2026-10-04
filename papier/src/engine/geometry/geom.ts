@@ -143,3 +143,9 @@ export function unionBBox(boxes: BBox[]): BBox | null {
   }
   return out;
 }
+
+/** Rotation d'angle `a` (radians) autour de (cx, cy). */
+export function rotateAboutMat(a: number, cx: number, cy: number): Mat2D {
+  const c = Math.cos(a), s = Math.sin(a);
+  return [c, s, -s, c, cx - c * cx + s * cy, cy - s * cx - c * cy];
+}

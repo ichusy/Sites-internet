@@ -17,7 +17,8 @@
     const host = bar?.parentElement;
     const maxX = (host?.clientWidth ?? 800) - size.w - 8;
     const x = Math.max(8, Math.min(info.rect.x + info.rect.width / 2 - size.w / 2, maxX));
-    let y = info.rect.y - size.h - 14;
+    // Au-dessus de la poignée de rotation (28 px au-dessus du cadre).
+    let y = info.rect.y - size.h - 44;
     if (y < 8) y = info.rect.y + info.rect.height + 14;
     y = Math.max(8, Math.min(y, (host?.clientHeight ?? 600) - size.h - 8));
     return { x, y };

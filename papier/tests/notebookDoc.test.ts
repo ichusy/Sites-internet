@@ -84,7 +84,7 @@ describe('document de carnet', () => {
     addElements(doc, first, [s]);
     const other = new Y.Doc();
     Y.applyUpdate(other, Y.encodeStateAsUpdate(doc));
-    const got = pageElements(other, first)!.get('s1')!;
+    const got = pageElements(other, first)!.get('s1') as StrokeElement;
     expect(got.points).toBeInstanceOf(Uint8Array);
     expect(Array.from(got.points)).toEqual(Array.from(s.points));
   });

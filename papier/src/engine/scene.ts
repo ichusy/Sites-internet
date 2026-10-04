@@ -1,19 +1,26 @@
 import RBush from 'rbush';
 import { decodePoints } from '../core/model/pointCodec';
-import type { BBox, ID, PageData, PageElement, StrokeElement } from '../core/model/types';
-import { pointsBBox, transformPoints } from './geometry/geom';
-import { centerlinePath, outlinePath } from './ink/brushes';
+import type { BBox, ID, Mat2D, PageData, PageElement, StrokeElement } from '../core/model/types';
+import { applyMat, IDENTITY, pointsBBox, transformPoints } from './geometry/geom';
+import { centerlinePath, outlinePath, polylinePath } from './ink/brushes';
 
-/** Élément prêt à dessiner : points décodés en coordonnées de page, contour mis en cache. */
+/** Élément prêt à dessiner : géométrie en coordonnées de page, chemins mis en cache. */
 export interface RenderItem {
   id: ID;
   z: number;
-  el: StrokeElement;
-  /** Points [x, y, p, t] en coordonnées de page (transformation appliquée). */
+  el: PageElement;
+  /**
+   * Points [x, y, p, t] en coordonnées de page (transformation appliquée).
+   * Texte et images : les 4 coins puis le centre (pour le lasso).
+   */
   pts: Float32Array;
   bbox: BBox;
-  /** Chemin calculé à la demande. */
+  /** Texte et images : transformation du rectangle local vers la page. */
+  matrix?: Mat2D;
+  /** Chemin calculé à la demande (traits). */
   path?: Path2D;
+  /** Lignes de texte calculées à la demande. */
+  lines?: string[];
 }
 
 interface TreeEntry {
@@ -24,24 +31,49 @@ interface TreeEntry {
   item: RenderItem;
 }
 
-export function strokeHalfWidth(el: StrokeElement): number {
+export function strokeHalfWidth(el: PageElement): number {
+  if (el.type !== 'stroke') return 0;
+  if (el.tool === 'highlighter' || el.shape || el.dash !== 'solid') return el.width / 2;
+  if (el.tool === 'pencil') return el.width * 0.6;
   const factor = el.brush === 'brush' ? 1.2 : el.brush === 'fountain' ? 0.8 : 0.5;
-  return el.tool === 'highlighter' ? el.width / 2 : el.width * factor;
+  return el.width * factor;
+}
+
+/** Le trait se dessine-t-il comme une ligne médiane (et non comme un contour rempli) ? */
+export function isCenterline(el: StrokeElement) {
+  return el.tool === 'highlighter' || el.dash !== 'solid' || !!el.shape;
 }
 
 export function makeItem(el: PageElement): RenderItem {
-  let pts = decodePoints(el.points);
-  if (el.transform) pts = transformPoints(pts, el.transform);
-  return { id: el.id, z: el.z, el, pts, bbox: pointsBBox(pts, strokeHalfWidth(el) + 1) };
+  if (el.type === 'stroke') {
+    let pts = decodePoints(el.points);
+    if (el.transform) pts = transformPoints(pts, el.transform);
+    return { id: el.id, z: el.z, el, pts, bbox: pointsBBox(pts, strokeHalfWidth(el) + 1) };
+  }
+  const m = el.transform ?? IDENTITY;
+  const corners: [number, number][] = [
+    [el.x, el.y], [el.x + el.width, el.y], [el.x + el.width, el.y + el.height], [el.x, el.y + el.height],
+    [el.x + el.width / 2, el.y + el.height / 2],
+  ];
+  const pts = new Float32Array(corners.length * 4);
+  corners.forEach(([x, y], i) => {
+    const [tx, ty] = applyMat(m, x, y);
+    pts[i * 4] = tx;
+    pts[i * 4 + 1] = ty;
+    pts[i * 4 + 2] = 0.5;
+  });
+  return { id: el.id, z: el.z, el, pts, bbox: pointsBBox(pts.subarray(0, 16), 1), matrix: m };
 }
 
 export function itemPath(item: RenderItem): Path2D {
+  const el = item.el;
+  if (el.type !== 'stroke') return new Path2D();
   if (!item.path) {
-    const el = item.el;
-    item.path =
-      el.tool === 'highlighter' || el.dash !== 'solid'
+    item.path = el.shape
+      ? polylinePath(item.pts, !!el.closed)
+      : isCenterline(el)
         ? centerlinePath(item.pts)
-        : outlinePath(item.pts, el.brush, el.width, el.pressure, true);
+        : outlinePath(item.pts, el, true);
   }
   return item.path;
 }
@@ -96,7 +128,7 @@ export class PageScene {
     this.sortedCache = null;
     this.version++;
     // Ajout d'encre au sommet de la pile : simple ajout incrémental dans le cache.
-    if (!existed && item.z >= this.maxZ && item.el.tool !== 'highlighter' && this.dirty !== 'full') {
+    if (!existed && item.z >= this.maxZ && !isHighlight(item.el) && this.dirty !== 'full') {
       this.pending.push(item);
       this.dirty = 'append';
     } else {
@@ -156,4 +188,8 @@ export class PageScene {
     this.items.delete(id);
     this.sortedCache = null;
   }
+}
+
+export function isHighlight(el: PageElement) {
+  return el.type === 'stroke' && el.tool === 'highlighter';
 }

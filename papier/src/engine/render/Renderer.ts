@@ -55,6 +55,11 @@ export class Renderer {
   overlay: ((ctx: CanvasRenderingContext2D) => void) | null = null;
   deskColor = '#e9e6e0';
 
+  /** Images et fonds disponibles pour les outils (aperçus). */
+  get resources() {
+    return this.src.backgrounds;
+  }
+
   constructor(
     private main: HTMLCanvasElement,
     private wetCanvas: HTMLCanvasElement,
@@ -145,13 +150,12 @@ export class Renderer {
           .query([vx0 - l.x, vy0 - l.y, vx1 - l.x, vy1 - l.y])
           .filter((i) => !scene.hidden.has(i.id))
           .sort((a, b) => a.z - b.z);
-        const bg = this.background(scene, target);
         ctx.save();
         ctx.beginPath();
         ctx.rect(sx, sy, sw, sh);
         ctx.clip();
         ctx.setTransform(target, 0, 0, target, sx, sy);
-        drawPageContent(ctx, scene.page, items, target, bg);
+        drawPageContent(ctx, scene.page, items, target, this.src.backgrounds);
         ctx.restore();
         continue;
       }
@@ -163,7 +167,7 @@ export class Renderer {
         this.caches.set(l.id, cache);
       } else if (scene.dirty === 'append') {
         cache.ctx.setTransform(cache.scale, 0, 0, cache.scale, 0, 0);
-        for (const item of scene.pending) if (!scene.hidden.has(item.id)) drawItem(cache.ctx, item);
+        for (const item of scene.pending) if (!scene.hidden.has(item.id)) drawItem(cache.ctx, item, this.src.backgrounds);
         scene.pending = [];
         scene.dirty = 'clean';
       }
@@ -196,15 +200,10 @@ export class Renderer {
     canvas.height = Math.max(1, Math.ceil(page.height * scale));
     const ctx = canvas.getContext('2d', { alpha: false })!;
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    drawPageContent(ctx, page, scene.visible(), scale, this.background(scene, scale));
+    drawPageContent(ctx, page, scene.visible(), scale, this.src.backgrounds);
     scene.dirty = 'clean';
     scene.pending = [];
     return { canvas, ctx, scale, lastUsed: performance.now() };
-  }
-
-  private background(scene: PageScene, scale: number) {
-    const { page } = scene;
-    return page.background ? this.src.backgrounds.get(page.background, page.width, page.height, scale) : null;
   }
 
   private evict(visible: Set<ID>) {
@@ -233,7 +232,7 @@ export class Renderer {
         ctx.rect(sx, sy, l.width * target, l.height * target);
         ctx.clip();
         ctx.setTransform(target, 0, 0, target, sx, sy);
-        drawItem(ctx, this.wet.item, this.wet.path);
+        drawItem(ctx, this.wet.item, this.src.backgrounds, this.wet.path);
         ctx.restore();
       }
     }
@@ -264,8 +263,6 @@ export class Renderer {
     canvas.style.height = `${(scene.page.height / scene.page.width) * cssWidth}px`;
     const ctx = canvas.getContext('2d')!;
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    const { page } = scene;
-    const bg = page.background ? backgrounds.get(page.background, page.width, page.height, scale) : null;
-    drawPageContent(ctx, page, scene.sorted(), scale, bg);
+    drawPageContent(ctx, scene.page, scene.sorted(), scale, backgrounds);
   }
 }

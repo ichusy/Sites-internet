@@ -5,6 +5,10 @@
   import type { Editor } from '../../engine/Editor';
   import type { PageLayout } from '../../engine/layout';
   import Menu, { type MenuItem } from '../common/Menu.svelte';
+  import { liveQuery } from 'dexie';
+  import { db } from '../../core/storage/db';
+  import type { TemplateRecord } from '../../core/model/types';
+  import { customTemplateRef, importTemplate } from '../templates';
   import PageThumb from './PageThumb.svelte';
 
   let { editor, current, pageCount }: { editor: Editor; current: number; pageCount: number } = $props();
@@ -19,6 +23,9 @@
     const next = editor.pages();
     if (next !== pages) pages = next;
   }));
+
+  const customsQ = liveQuery(() => db.templates.orderBy('createdAt').toArray());
+  const customs = $derived<TemplateRecord[]>($customsQ ?? []);
 
   let list: HTMLDivElement;
   let drag = $state<{ from: number; to: number; pointerId: number } | null>(null);
@@ -62,7 +69,8 @@
   }
 
   function items(p: PageLayout): MenuItem[] {
-    const kind = editor.scene(p.id)?.page.template.kind;
+    const tpl = editor.scene(p.id)?.page.template;
+    const kind = tpl?.kind;
     return [
       { label: 'Insérer une page après', icon: FilePlus, action: () => editor.addPage(p.index) },
       { label: 'Dupliquer', icon: Copy, action: () => editor.duplicatePage(p.id) },
@@ -74,6 +82,18 @@
         checked: kind === k,
         action: () => editor.setTemplate(p.id, defaultTemplate(k)),
       })),
+      ...customs.map((t) => ({
+        label: t.name,
+        checked: kind === 'custom' && tpl?.source?.templateId === t.id,
+        action: () => editor.setTemplate(p.id, customTemplateRef(t)),
+      })),
+      {
+        label: 'Importer un modèle…',
+        action: async () => {
+          const t = await importTemplate();
+          if (t) editor.setTemplate(p.id, customTemplateRef(t));
+        },
+      },
       { separator: true },
       { label: 'Supprimer la page', icon: Trash2, danger: true, disabled: pages.length <= 1, action: () => editor.deletePage(p.id) },
     ];

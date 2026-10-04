@@ -54,3 +54,32 @@ describe('export PDF', () => {
     expect(blendModes(pdf, 0)).toEqual([]);
   });
 });
+
+describe('export PDF — étape 2', () => {
+  it('exporte texte accentué, forme, crayon et modèle Cornell (libellés en Helvetica)', async () => {
+    const doc = new Y.Doc();
+    initNotebook(doc, 'Révisions', { width: 595.28, height: 841.89, template: defaultTemplate('cornell') });
+    const pageId = listPages(doc)[0].id;
+    const shape: StrokeElement = {
+      ...stroke('rect', 'pen'), shape: 'rect', closed: true,
+      points: encodePoints([100, 100, 0.5, 0, 200, 100, 0.5, 0, 200, 160, 0.5, 0, 100, 160, 0.5, 0]),
+    };
+    const pencil: StrokeElement = { ...stroke('crayon', 'pen'), tool: 'pencil', opacity: 0.92 };
+    addElements(doc, pageId, [
+      shape,
+      pencil,
+      {
+        type: 'text', id: 't1', z: 3, bbox: [50, 300, 350, 340], x: 50, y: 300, width: 300, height: 40,
+        text: 'Mitochondrie : « centrale énergétique » — ATP\nDeuxième ligne ✓', fontSize: 14, color: '#2f5fd0',
+        transform: [0.9, 0.2, -0.2, 0.9, 10, 5],
+      },
+    ]);
+    const bytes = await exportPdf(doc, { annotations: true });
+    const pdf = await PDFDocument.load(bytes);
+    expect(pdf.getPageCount()).toBe(1);
+    const fonts = pdf.getPage(0).node.Resources()?.lookupMaybe(PDFName.of('Font'), PDFDict);
+    expect(fonts?.entries().length).toBeGreaterThan(0);
+    // Crayon (opacité réduite) et encre normale : états graphiques distincts.
+    expect(blendModes(pdf, 0)).toContain('/Normal');
+  });
+});

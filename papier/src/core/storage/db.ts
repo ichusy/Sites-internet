@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { AssetRecord, FolderRecord, NotebookRecord } from '../model/types';
+import type { AssetRecord, FolderRecord, NotebookRecord, TemplateRecord } from '../model/types';
 
 /**
  * Base IndexedDB « papier » : index de la bibliothèque et fichiers binaires.
@@ -9,6 +9,7 @@ class PapierDB extends Dexie {
   folders!: Table<FolderRecord, string>;
   notebooks!: Table<NotebookRecord, string>;
   assets!: Table<AssetRecord, string>;
+  templates!: Table<TemplateRecord, string>;
 
   constructor() {
     super('papier');
@@ -17,6 +18,7 @@ class PapierDB extends Dexie {
       notebooks: 'id, folderId, updatedAt, openedAt, title',
       assets: 'id',
     });
+    this.version(2).stores({ templates: 'id, createdAt' });
   }
 }
 

@@ -1,9 +1,22 @@
 import { getStroke, type StrokeOptions } from 'perfect-freehand';
 import { POINT_STRIDE } from '../../core/model/pointCodec';
-import type { Brush } from '../../core/model/types';
+import type { StrokeElement } from '../../core/model/types';
 
-/** Paramètres de rendu de chaque pointe de stylo. */
-function brushOptions(brush: Brush, width: number, realPressure: boolean): StrokeOptions {
+export type OutlineStyle = Pick<StrokeElement, 'tool' | 'brush' | 'width' | 'pressure'>;
+
+/** Paramètres de rendu de chaque pointe de stylo (et du crayon). */
+function brushOptions({ tool, brush, width, pressure: realPressure }: OutlineStyle): StrokeOptions {
+  if (tool === 'pencil') {
+    return {
+      size: width * 1.25,
+      thinning: realPressure ? 0.35 : 0.1,
+      smoothing: 0.5,
+      streamline: 0.35,
+      simulatePressure: !realPressure,
+      start: { taper: width * 1.5, cap: true },
+      end: { taper: width * 1.5, cap: true },
+    };
+  }
   switch (brush) {
     case 'fountain':
       return {
@@ -59,9 +72,9 @@ function toInput(pts: Float32Array): number[][] {
   return out;
 }
 
-/** Polygone du contour (épaisseur variable) d'un trait de stylo. */
-export function strokeOutline(pts: Float32Array, brush: Brush, width: number, realPressure: boolean, complete: boolean): number[][] {
-  return getStroke(toInput(pts), { ...brushOptions(brush, width, realPressure), last: complete });
+/** Polygone du contour (épaisseur variable) d'un trait de stylo ou de crayon. */
+export function strokeOutline(pts: Float32Array, style: OutlineStyle, complete: boolean): number[][] {
+  return getStroke(toInput(pts), { ...brushOptions(style), last: complete });
 }
 
 /** Contour fermé, lissé par courbes quadratiques passant par les milieux. */
@@ -105,9 +118,24 @@ function path2DSink(path: Path2D): PathSink {
 }
 
 /** Contour rempli (épaisseur variable) d'un trait de stylo, pour Canvas. */
-export function outlinePath(pts: Float32Array, brush: Brush, width: number, realPressure: boolean, complete: boolean): Path2D {
+export function outlinePath(pts: Float32Array, style: OutlineStyle, complete: boolean): Path2D {
   const path = new Path2D();
-  traceOutline(strokeOutline(pts, brush, width, realPressure, complete), path2DSink(path));
+  traceOutline(strokeOutline(pts, style, complete), path2DSink(path));
+  return path;
+}
+
+/** Segments droits entre sommets (formes reconnues). */
+export function tracePolyline(pts: Float32Array, closed: boolean, sink: PathSink) {
+  const n = pts.length / POINT_STRIDE;
+  if (!n) return;
+  sink.moveTo(pts[0], pts[1]);
+  for (let i = 1; i < n; i++) sink.lineTo(pts[i * POINT_STRIDE], pts[i * POINT_STRIDE + 1]);
+  if (closed) sink.close();
+}
+
+export function polylinePath(pts: Float32Array, closed: boolean): Path2D {
+  const path = new Path2D();
+  tracePolyline(pts, closed, path2DSink(path));
   return path;
 }
 

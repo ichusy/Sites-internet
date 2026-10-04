@@ -37,8 +37,10 @@ src/
 │  ├─ input/PointerRouter  stylet / doigt / souris, rejet de la paume, gestes
 │  ├─ render/              Renderer (calques, caches), dessin des modèles et traits
 │  ├─ ink/brushes.ts       pointes bille / plume / pinceau
-│  ├─ geometry/            distances, gomme partielle, matrices, polygones
-│  └─ tools/               stylo & surligneur (InkTool), gomme, lasso
+│  ├─ geometry/            distances, gomme partielle, matrices, polygones,
+│  │                       reconnaissance de formes / gribouillis (recognize.ts)
+│  ├─ render/              + grain du crayon, mise en page du texte, modèles (primitives)
+│  └─ tools/               stylo, crayon & surligneur (InkTool), gomme, lasso, texte
 ├─ pdf/                    pdf.js (chargement), import PDF/images, export PDF
 ├─ io/                     archives .papier, sélection et enregistrement de fichiers
 └─ ui/                     composants Svelte (bibliothèque, carnet, dialogues, actions)
@@ -74,13 +76,41 @@ src/
   et dessinés en aperçu sur le calque d'encre fraîche ; à la fin, une seule
   transaction met à jour leur `transform` (et leur épaisseur en cas d'agrandissement).
 
+## Étape 2 : éléments et gestes
+
+- **Éléments** : trait (stylo, crayon, surligneur ; éventuellement *forme*),
+  texte, image (photo ou autocollant). Texte et images ont un rectangle local et
+  une matrice `transform` ; les traits ont leurs points transformés.
+- **Crayon** : contour perfect-freehand rempli d'un motif de grain (bruit généré,
+  teinté par couleur, mis en cache). En PDF : même contour, légère transparence.
+- **Reconnaissance de formes** (`recognize.ts`, sans dépendance) : ligne si tous
+  les points sont proches de la corde ; sinon courbe fermée → ajustement d'ellipse
+  (analyse en composantes principales, erreur radiale) comparé à un polygone
+  (Douglas-Peucker sur courbe fermée) ; régularisation (cercle si axes proches,
+  rectangle à angles droits aimanté aux axes). Déclenchée par 450 ms d'immobilité.
+- **Gribouillis** : longueur ≥ 3 × diagonale et ≥ 4 rebroussements ; efface les
+  traits dont ≥ 60 % des points sont dans son enveloppe convexe.
+- **Entourer puis toucher** : boucle fermée → éléments à ≥ 50 % dedans retenus ;
+  un toucher dans la boucle annule la boucle (Y.UndoManager) et sélectionne.
+- **Texte** : mise en page commune (`render/text.ts`) écran / PDF, police
+  Helvetica (à l'écran : Helvetica/Arial) pour des retours à la ligne identiques.
+  L'édition passe par un `<textarea>` superposé, toujours présent dans le DOM
+  pour pouvoir ouvrir le clavier de l'iPad pendant le geste.
+- **Modèles** : `templatePrimitives()` décrit lignes, structure, points et
+  libellés ; partagé par l'écran et l'export. Modèle importé = image ou page de
+  PDF étirée sur la page (rendue par le même `BackgroundStore` que les fonds).
+
 ## Export PDF
 
 - Page issue d'un PDF : la page d'origine est **recopiée** (pdf-lib `copyPages`),
   son contenu est isolé (`q … Q`), puis l'encre est ajoutée dans le repère de la
   page via l'inverse de la transformation de pdf.js (rotation et CropBox gérées).
   PDF chiffré ou illisible par pdf-lib : repli sur une image à 150 dpi.
-- Page vierge ou image : nouvelle page aux mêmes dimensions.
+- Page vierge ou image : nouvelle page aux mêmes dimensions ; un modèle importé
+  PDF y est intégré en vectoriel (`embedPdf`), une image en image.
+- Texte : Helvetica standard (caractères hors WinAnsi remplacés par « ? »),
+  glyphes redressés (matrice de texte à Y inversé) ; images intégrées une fois
+  par fichier et dessinées via `Do` avec leur matrice.
 - Encre : contour perfect-freehand converti en courbes de Bézier cubiques (remplies) ;
   surligneur et pointillés en traits de ligne médiane ; surligneur en mode de
   fusion *Multiply* (ExtGState), comme à l'écran.
@@ -92,7 +122,7 @@ src/
 | 0 | Socle : Vite, TS, PWA, Dexie, Yjs, thèmes, tests | ✅ |
 | 1a | Bibliothèque, pages, stylo (3 pointes, pression, tirets/pointillés), surligneur, gomme, zoom, rejet de paume, annuler/rétablir | ✅ |
 | 1b | Lasso ; import PDF/images ; export PDF avec/sans annotations ; archive `.papier` | ✅ |
-| 2 | Crayon, gribouiller-pour-effacer, formes, texte, images, autocollants, modèles Cornell/planner/importés | |
+| 2 | Crayon, gribouiller-pour-effacer, formes, texte, images, autocollants, modèles Cornell/planner/importés | ✅ |
 | 3 | PDF : sommaire, liens ; recherche plein texte | |
 | 4 | Canevas infini, post-its, connecteurs | |
 | 5 | Audio synchronisé, transcription | |
