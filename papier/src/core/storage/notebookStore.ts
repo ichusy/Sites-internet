@@ -1,7 +1,8 @@
 import * as Y from 'yjs';
 import { IndexeddbPersistence, clearDocument } from 'y-indexeddb';
-import { LOCAL_ORIGIN, initNotebook, listPages, roots } from '../model/notebookDoc';
-import type { ID, NotebookRecord } from '../model/types';
+import { LOCAL_ORIGIN, SCHEMA_VERSION, initNotebook, insertPage, listPages, roots } from '../model/notebookDoc';
+import { newId } from '../model/ids';
+import type { ID, NotebookRecord, PageData } from '../model/types';
 import { db } from './db';
 
 export function docName(notebookId: ID) {
@@ -69,12 +70,32 @@ export async function openNotebook(record: NotebookRecord): Promise<OpenNotebook
   };
 }
 
-/** Crée et enregistre le document initial d'un nouveau carnet. */
-export async function createNotebookDoc(record: NotebookRecord, from?: ID) {
+export interface NewDocOptions {
+  /** Copier le contenu d'un autre carnet. */
+  from?: ID;
+  /** Pages initiales (import de PDF / d'images). */
+  pages?: Omit<PageData, 'id'>[];
+  /** État Yjs complet (restauration d'archive). */
+  update?: Uint8Array;
+}
+
+/** Crée et enregistre le document initial d'un nouveau carnet. Renvoie le nombre de pages. */
+export async function createNotebookDoc(record: NotebookRecord, opts: NewDocOptions = {}) {
+  const { from } = opts;
   const doc = new Y.Doc();
   const persistence = new IndexeddbPersistence(docName(record.id), doc);
   await persistence.whenSynced;
-  if (from) {
+  if (opts.update) {
+    Y.applyUpdate(doc, opts.update);
+    roots(doc).meta.set('title', record.title);
+  } else if (opts.pages?.length) {
+    doc.transact(() => {
+      const { meta } = roots(doc);
+      meta.set('schemaVersion', SCHEMA_VERSION);
+      meta.set('title', record.title);
+      opts.pages!.forEach((p, i) => insertPage(doc, { ...p, id: newId() }, i));
+    });
+  } else if (from) {
     const src = new Y.Doc();
     const srcPersistence = new IndexeddbPersistence(docName(from), src);
     await srcPersistence.whenSynced;
@@ -93,6 +114,18 @@ export async function createNotebookDoc(record: NotebookRecord, from?: ID) {
   await persistence.destroy();
   doc.destroy();
   return pageCount;
+}
+
+/**
+ * Charge une copie en lecture du document d'un carnet (export depuis la bibliothèque).
+ * L'appelant doit appeler `doc.destroy()` une fois terminé.
+ */
+export async function loadNotebookDoc(id: ID): Promise<Y.Doc> {
+  const doc = new Y.Doc();
+  const persistence = new IndexeddbPersistence(docName(id), doc);
+  await persistence.whenSynced;
+  await persistence.destroy();
+  return doc;
 }
 
 export async function deleteNotebookDoc(id: ID) {

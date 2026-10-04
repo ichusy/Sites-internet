@@ -2,12 +2,21 @@
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { VitePWA } from 'vite-plugin-pwa';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 export default defineConfig({
   // Chemins relatifs : l'app fonctionne quel que soit le sous-dossier où elle est servie.
   base: './',
   plugins: [
     svelte(),
+    // Ressources annexes de pdf.js (polices standard, CMaps, décodeurs wasm, profils ICC).
+    viteStaticCopy({
+      targets: ['cmaps', 'standard_fonts', 'wasm', 'iccs'].map((dir) => ({
+        src: `node_modules/pdfjs-dist/${dir}`,
+        dest: 'pdfjs',
+        rename: { stripBase: 2 },
+      })),
+    }),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
@@ -30,7 +39,18 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
+        globPatterns: ['**/*.{js,mjs,css,html,svg,png,woff2}'],
+        globIgnores: ['pdfjs/**'],
+        // Le worker pdf.js dépasse la limite par défaut de 2 Mo.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        runtimeCaching: [
+          {
+            // Ressources pdf.js mises en cache à la première utilisation, puis disponibles hors ligne.
+            urlPattern: ({ url }) => url.pathname.includes('/pdfjs/'),
+            handler: 'CacheFirst',
+            options: { cacheName: 'pdfjs-resources', expiration: { maxEntries: 400 } },
+          },
+        ],
       },
     }),
   ],

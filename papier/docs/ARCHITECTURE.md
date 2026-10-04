@@ -11,6 +11,9 @@
 | Index de la bibliothèque | Dexie (IndexedDB) |
 | Tracé de l'encre | perfect-freehand (contour à épaisseur variable) |
 | Index spatial | rbush (gomme, lasso) |
+| Lecture des PDF | pdf.js (build *legacy*, chargé à la demande, worker) |
+| Écriture des PDF | pdf-lib (chargé à la demande) |
+| Archives `.papier` | fflate (zip) |
 
 Pourquoi Yjs dès le départ : le même modèle fournit l'annulation illimitée
 (`Y.UndoManager`, limitée aux modifications locales), la persistance
@@ -34,9 +37,11 @@ src/
 │  ├─ input/PointerRouter  stylet / doigt / souris, rejet de la paume, gestes
 │  ├─ render/              Renderer (calques, caches), dessin des modèles et traits
 │  ├─ ink/brushes.ts       pointes bille / plume / pinceau
-│  ├─ geometry/            distances, gomme partielle
-│  └─ tools/               stylo & surligneur (InkTool), gomme
-└─ ui/                     composants Svelte (bibliothèque, carnet, dialogues)
+│  ├─ geometry/            distances, gomme partielle, matrices, polygones
+│  └─ tools/               stylo & surligneur (InkTool), gomme, lasso
+├─ pdf/                    pdf.js (chargement), import PDF/images, export PDF
+├─ io/                     archives .papier, sélection et enregistrement de fichiers
+└─ ui/                     composants Svelte (bibliothèque, carnet, dialogues, actions)
 ```
 
 ## Moteur d'encre
@@ -58,7 +63,27 @@ src/
   Le surligneur passe donc toujours derrière l'encre.
 - **Rejet de la paume** : pendant un trait au stylet, tout contact tactile est
   ignoré ; une fois un stylet détecté, le doigt ne dessine plus (mode Auto).
-- **Annulation** : chaque trait = une étape ; tout un geste de gomme = une étape.
+- **Annulation** : chaque trait = une étape ; tout un geste de gomme = une étape ;
+  un déplacement ou redimensionnement au lasso = une étape.
+- **Fonds importés** (`render/backgrounds.ts`) : les pages PDF sont rendues par
+  pdf.js en arrière-plan, à une résolution quantifiée (pas de √2, 8 Mpx max),
+  un rendu à la fois, le plus récent demandé en premier ; le cache de la page est
+  recalculé quand un rendu plus net arrive.
+- **Lasso** : sélection = éléments dont ≥ 50 % des points sont dans la boucle
+  (ou trait touché). Pendant un déplacement, les éléments sont retirés du cache
+  et dessinés en aperçu sur le calque d'encre fraîche ; à la fin, une seule
+  transaction met à jour leur `transform` (et leur épaisseur en cas d'agrandissement).
+
+## Export PDF
+
+- Page issue d'un PDF : la page d'origine est **recopiée** (pdf-lib `copyPages`),
+  son contenu est isolé (`q … Q`), puis l'encre est ajoutée dans le repère de la
+  page via l'inverse de la transformation de pdf.js (rotation et CropBox gérées).
+  PDF chiffré ou illisible par pdf-lib : repli sur une image à 150 dpi.
+- Page vierge ou image : nouvelle page aux mêmes dimensions.
+- Encre : contour perfect-freehand converti en courbes de Bézier cubiques (remplies) ;
+  surligneur et pointillés en traits de ligne médiane ; surligneur en mode de
+  fusion *Multiply* (ExtGState), comme à l'écran.
 
 ## Feuille de route
 
@@ -66,7 +91,7 @@ src/
 |---|---|---|
 | 0 | Socle : Vite, TS, PWA, Dexie, Yjs, thèmes, tests | ✅ |
 | 1a | Bibliothèque, pages, stylo (3 pointes, pression, tirets/pointillés), surligneur, gomme, zoom, rejet de paume, annuler/rétablir | ✅ |
-| 1b | Lasso ; import PDF/images ; export PDF avec/sans annotations ; archive `.papier` | à venir |
+| 1b | Lasso ; import PDF/images ; export PDF avec/sans annotations ; archive `.papier` | ✅ |
 | 2 | Crayon, gribouiller-pour-effacer, formes, texte, images, autocollants, modèles Cornell/planner/importés | |
 | 3 | PDF : sommaire, liens ; recherche plein texte | |
 | 4 | Canevas infini, post-its, connecteurs | |

@@ -2,7 +2,6 @@
   import { onMount } from 'svelte';
   import type { ID } from '../../core/model/types';
   import type { Editor } from '../../engine/Editor';
-  import { Renderer } from '../../engine/render/Renderer';
 
   let { editor, pageId, width }: { editor: Editor; pageId: ID; width: number } = $props();
 
@@ -12,10 +11,9 @@
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   function render() {
-    const scene = editor.scene(pageId);
-    if (!scene || !visible) return;
+    if (!editor.scene(pageId) || !visible) return;
     stale = false;
-    Renderer.renderThumbnail(canvas, scene, width, Math.min(2, window.devicePixelRatio || 1));
+    editor.renderThumbnail(canvas, pageId, width);
   }
 
   onMount(() => {

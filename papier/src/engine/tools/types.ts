@@ -1,11 +1,17 @@
 import type * as Y from 'yjs';
-import type { Brush, DashStyle, ID } from '../../core/model/types';
+import type { Brush, DashStyle, ID, Mat2D } from '../../core/model/types';
 import type { PageLayout } from '../layout';
 import type { Renderer } from '../render/Renderer';
 import type { PageScene } from '../scene';
 import type { Viewport } from '../Viewport';
 
-export type ToolName = 'pen' | 'highlighter' | 'eraser';
+export type ToolName = 'pen' | 'highlighter' | 'eraser' | 'lasso';
+
+/** Éléments sélectionnés au lasso (toujours sur une seule page). */
+export interface Selection {
+  pageId: ID;
+  ids: ID[];
+}
 
 export interface PenStyle {
   brush: Brush;
@@ -56,6 +62,10 @@ export interface ToolContext {
   beginAction(): void;
   /** Modifie le document (transaction locale, annulable). */
   transact(fn: (doc: Y.Doc) => void): void;
+  selection(): Selection | null;
+  setSelection(sel: Selection | null): void;
+  /** Applique une transformation (et un facteur d'épaisseur) à la sélection, en une étape annulable. */
+  transformSelection(m: Mat2D, widthScale: number): void;
 }
 
 export interface Tool {

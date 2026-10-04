@@ -1,8 +1,8 @@
 # Format des données (schéma v1)
 
 Toutes les données sont stockées localement dans IndexedDB. Ce document décrit
-leur structure pour qu'elles restent lisibles sans l'application. L'export
-d'archive `.papier` (étape 1b) reprendra exactement ces structures en JSON.
+leur structure pour qu'elles restent lisibles sans l'application. Les archives
+`.papier` (voir en fin de document) reprennent exactement ces structures.
 
 ## Unités
 
@@ -37,7 +37,13 @@ d'archive `.papier` (étape 1b) reprendra exactement ces structures en JSON.
 
 ### `assets`
 Fichiers binaires (PDF, images, audio) adressés par leur empreinte SHA-256 :
-`{ id, mime, size, blob, createdAt }`.
+`{ id, mime, size, blob, createdAt }`. Un même fichier importé deux fois n'est
+stocké qu'une fois.
+
+Une page issue d'un PDF a pour fond `{ kind: "pdf", assetId, pageIndex }`
+(`pageIndex` commence à 0) et prend la taille de la page affichée par pdf.js
+(CropBox, rotation appliquée). Une page issue d'une image a pour fond
+`{ kind: "image", assetId }`, l'image étant étirée sur toute la page.
 
 ## Base `papier-nb-<id>` (un document Yjs par carnet)
 
@@ -70,7 +76,7 @@ pages      Y.Map<string, Y.Map>     une Y.Map par page :
   "dash": "solid" | "dashed" | "dotted",
   "pressure": true,           // pression matérielle (stylet) ou simulée
   "points": Uint8Array,       // voir ci-dessous
-  "transform": [a,b,c,d,e,f], // optionnel : matrice appliquée aux points
+  "transform": [a,b,c,d,e,f], // optionnel : matrice appliquée aux points (x' = a·x + c·y + e, y' = b·x + d·y + f)
   "bbox": [minX, minY, maxX, maxY],
   "t0": 1759600000000         // horodatage du premier point
 }
@@ -88,9 +94,47 @@ pages      Y.Map<string, Y.Map>     une Y.Map par page :
 
 L'horodatage par point servira à la relecture synchronisée avec l'audio.
 
+Le lasso ne réécrit jamais les points : un déplacement ou un redimensionnement
+compose la matrice `transform` existante, et un agrandissement multiplie `width`
+par le même facteur. Les coordonnées affichées sont donc `transform(points)`.
+
 Rendu de référence : contour [perfect-freehand](https://github.com/steveruizok/perfect-freehand)
 pour le stylo plein ; ligne médiane de largeur `width` pour le surligneur
 (composition *multiply*) et les traits pointillés/tirets.
+
+## Archive `.papier`
+
+Fichier zip :
+
+| Chemin | Contenu |
+|---|---|
+| `manifest.json` | `{ "format": "papier-archive", "version": 1, "exportedAt": "…" }` |
+| `library.json` | `{ "folders": FolderRecord[], "notebooks": NotebookRecord[] }` |
+| `notebooks/<id>.json` | contenu lisible du carnet (voir ci-dessous) |
+| `notebooks/<id>.ydoc` | état Yjs complet (`Y.encodeStateAsUpdate`), pour une restauration sans perte |
+| `assets.json` | `[{ id, mime, size, file }]` |
+| `assets/<sha256>.<ext>` | fichiers importés (PDF, images), à l'identique |
+
+`notebooks/<id>.json` :
+
+```jsonc
+{
+  "schemaVersion": 1,
+  "title": "Biologie cellulaire",
+  "pages": [
+    { "id": "…", "width": 595.28, "height": 841.89,
+      "template": { "kind": "lined", "spacing": 22.68 },
+      "background": { "kind": "pdf", "assetId": "…", "pageIndex": 0 },   // optionnel
+      "elements": [ { "type": "stroke", …, "points": "<base64>" } ]       // triés par z
+    }
+  ]
+}
+```
+
+`points` y est le même binaire que ci-dessus, encodé en base64. À l'import, Papier
+utilise `.ydoc` s'il est présent, sinon reconstruit le carnet depuis le JSON : une
+archive produite par un autre outil n'a besoin que du JSON. Tout est importé sous
+de nouveaux identifiants ; rien d'existant n'est écrasé.
 
 ## Évolution
 

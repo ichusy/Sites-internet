@@ -1,19 +1,36 @@
 import * as Y from 'yjs';
 import {
-  LOCAL_ORIGIN, deletePage, duplicatePage, insertPage, listPages, movePage,
-  readPage, roots, setPageTemplate, type ElementsMap, type PageMap,
+  LOCAL_ORIGIN, addElements, deletePage, duplicatePage, insertPage, listPages, movePage,
+  pageElements, readPage, removeElements, roots, setPageTemplate, type ElementsMap, type PageMap,
 } from '../core/model/notebookDoc';
-import { newId } from '../core/model/ids';
-import type { ID, PageElement, TemplateRef } from '../core/model/types';
+import { newId, nextZ } from '../core/model/ids';
+import type { ID, Mat2D, PageBackground, PageData, PageElement, TemplateRef } from '../core/model/types';
 import type { OpenNotebook } from '../core/storage/notebookStore';
+import { multiplyMat, translateMat } from './geometry/geom';
 import { PointerRouter, type FingerDrawing } from './input/PointerRouter';
 import { layoutPages, type PageLayout } from './layout';
+import { BackgroundStore } from './render/backgrounds';
 import { Renderer } from './render/Renderer';
-import { PageScene } from './scene';
+import { PageScene, makeItem } from './scene';
 import { EraserTool } from './tools/EraserTool';
 import { InkTool } from './tools/InkTool';
-import type { Tool, ToolContext, ToolName, ToolStyles } from './tools/types';
+import { LassoTool } from './tools/LassoTool';
+import type { Selection, Tool, ToolContext, ToolName, ToolStyles } from './tools/types';
 import { Viewport } from './Viewport';
+
+/** Sélection telle que l'interface l'affiche (rectangle en pixels CSS dans la zone de dessin). */
+export interface SelectionInfo {
+  count: number;
+  rect: { x: number; y: number; width: number; height: number };
+  dragging: boolean;
+}
+
+/** Presse-papiers interne, partagé entre les carnets pendant la session. */
+let clipboard: { pageId: ID; elements: PageElement[] } | null = null;
+
+export function hasClipboard() {
+  return clipboard !== null;
+}
 
 export interface EditorState {
   canUndo: boolean;
@@ -43,6 +60,11 @@ export class Editor {
   private wet: HTMLCanvasElement;
   private saveViewTimer: ReturnType<typeof setTimeout> | undefined;
   private initialised = false;
+  private lasso: LassoTool;
+  private sel: Selection | null = null;
+  private selectionListeners = new Set<(s: SelectionInfo | null) => void>();
+  private pasteCount = 0;
+  readonly backgrounds: BackgroundStore;
 
   tool: ToolName = 'pen';
   fingerDrawing: FingerDrawing = 'auto';
@@ -58,10 +80,12 @@ export class Editor {
     this.wet.className = 'ink-wet';
     container.append(this.main, this.wet);
 
+    this.backgrounds = new BackgroundStore((bg) => this.onBackgroundReady(bg));
     this.renderer = new Renderer(this.main, this.wet, {
       viewport: this.viewport,
       layouts: () => this.layout.pages,
       scene: (id) => this.scenes.get(id),
+      backgrounds: this.backgrounds,
     });
 
     const ctx: ToolContext = {
@@ -72,12 +96,18 @@ export class Editor {
       scene: (id) => this.scenes.get(id),
       beginAction: () => this.nb.undo.stopCapturing(),
       transact: (fn) => this.nb.doc.transact(() => fn(this.nb.doc), LOCAL_ORIGIN),
+      selection: () => this.sel,
+      setSelection: (sel) => this.setSelection(sel),
+      transformSelection: (m, s) => this.transformSelection(m, s),
     };
+    this.lasso = new LassoTool(ctx);
     this.tools = {
       pen: new InkTool(ctx, 'pen'),
       highlighter: new InkTool(ctx, 'highlighter'),
       eraser: new EraserTool(ctx),
+      lasso: this.lasso,
     };
+    this.renderer.overlay = (c) => this.lasso.drawOverlay(c);
 
     this.router = new PointerRouter(this.wet, {
       viewport: this.viewport,
@@ -112,6 +142,8 @@ export class Editor {
     this.resizeObserver.disconnect();
     this.router.destroy();
     this.renderer.destroy();
+    this.backgrounds.destroy();
+    this.selectionListeners.clear();
     clearTimeout(this.saveViewTimer);
     this.main.remove();
     this.wet.remove();
@@ -151,9 +183,141 @@ export class Editor {
   // ── Outils et commandes ────────────────────────────────
 
   setTool(tool: ToolName) {
+    if (tool === this.tool) return;
     this.tools[this.tool].cancel();
     this.tools[this.tool].hover?.(null);
+    if (this.tool === 'lasso') this.setSelection(null);
     this.tool = tool;
+  }
+
+  get doc(): Y.Doc {
+    return this.nb.doc;
+  }
+
+  // ── Sélection (lasso) ──────────────────────────────────
+
+  selection(): Selection | null {
+    return this.sel;
+  }
+
+  onSelection(fn: (s: SelectionInfo | null) => void): () => void {
+    this.selectionListeners.add(fn);
+    fn(this.selectionInfo());
+    return () => this.selectionListeners.delete(fn);
+  }
+
+  selectionInfo(): SelectionInfo | null {
+    const sel = this.sel;
+    const bb = this.lasso.selectionBBox(sel);
+    const page = sel && this.layout.pages.find((l) => l.id === sel.pageId);
+    if (!sel || !bb || !page) return null;
+    const [x0, y0] = this.viewport.toScreen(page.x + bb[0], page.y + bb[1]);
+    const [x1, y1] = this.viewport.toScreen(page.x + bb[2], page.y + bb[3]);
+    return { count: sel.ids.length, rect: { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }, dragging: this.lasso.dragging };
+  }
+
+  private emitSelection = () => {
+    const info = this.selectionInfo();
+    for (const fn of this.selectionListeners) fn(info);
+  };
+
+  private setSelection(sel: Selection | null) {
+    this.sel = sel && sel.ids.length ? sel : null;
+    this.renderer.invalidateWet();
+    this.emitSelection();
+  }
+
+  clearSelection() {
+    this.setSelection(null);
+  }
+
+  /** Sélectionne tout le contenu de la page courante. */
+  selectAll() {
+    const page = this.layout.pages[this.currentPageIndex()];
+    const scene = page && this.scenes.get(page.id);
+    if (scene) this.setSelection({ pageId: page.id, ids: scene.sorted().map((i) => i.id) });
+  }
+
+  /** Remplace chaque élément sélectionné par une version modifiée, en une étape annulable. */
+  private updateSelected(fn: (el: PageElement) => PageElement) {
+    const sel = this.sel;
+    if (!sel) return;
+    this.transact((doc) => {
+      const els = pageElements(doc, sel.pageId);
+      if (!els) return;
+      for (const id of sel.ids) {
+        const el = els.get(id);
+        if (el) els.set(id, fn(el));
+      }
+    });
+    this.emitSelection();
+  }
+
+  private transformSelection(m: Mat2D, widthScale: number) {
+    this.updateSelected((el) => {
+      const next: PageElement = { ...el, transform: el.transform ? multiplyMat(m, el.transform) : m, width: el.width * widthScale };
+      next.bbox = makeItem(next).bbox;
+      return next;
+    });
+  }
+
+  recolorSelection(color: string) {
+    this.updateSelected((el) => ({ ...el, color }));
+  }
+
+  deleteSelection() {
+    const sel = this.sel;
+    if (!sel) return;
+    this.transact((doc) => removeElements(doc, sel.pageId, sel.ids));
+    this.setSelection(null);
+  }
+
+  copySelection() {
+    const sel = this.sel;
+    const scene = sel && this.scenes.get(sel.pageId);
+    if (!sel || !scene) return;
+    clipboard = {
+      pageId: sel.pageId,
+      elements: sel.ids.map((id) => scene.items.get(id)?.el).filter((e): e is PageElement => !!e),
+    };
+    this.pasteCount = 0;
+    this.emitState();
+  }
+
+  cutSelection() {
+    this.copySelection();
+    this.deleteSelection();
+    this.pasteCount = -1;
+  }
+
+  duplicateSelection() {
+    this.copySelection();
+    this.paste();
+  }
+
+  /** Colle le presse-papiers sur la page courante (décalé s'il s'agit de la page d'origine). */
+  paste() {
+    if (!clipboard?.elements.length) return;
+    const page = this.layout.pages[this.currentPageIndex()];
+    if (!page) return;
+    this.pasteCount++;
+    const offset = clipboard.pageId === page.id ? 16 * Math.max(0, this.pasteCount) : 0;
+    const shift = translateMat(offset, offset);
+    const fresh = [...clipboard.elements]
+      .sort((a, b) => a.z - b.z)
+      .map((el) => {
+        const next: PageElement = {
+          ...el,
+          id: newId(),
+          z: nextZ(),
+          points: el.points.slice(),
+          transform: el.transform ? multiplyMat(shift, el.transform) : shift,
+        };
+        next.bbox = makeItem(next).bbox;
+        return next;
+      });
+    this.transact((doc) => addElements(doc, page.id, fresh));
+    this.setSelection({ pageId: page.id, ids: fresh.map((e) => e.id) });
   }
 
   undo() {
@@ -202,6 +366,31 @@ export class Editor {
     this.scrollToPage(afterIndex + 1);
   }
 
+  /** Insère des pages importées (PDF, images) après `afterIndex`. */
+  insertPages(pages: Omit<PageData, 'id'>[], afterIndex = this.currentPageIndex()) {
+    if (!pages.length) return;
+    this.transact((doc) => pages.forEach((p, k) => insertPage(doc, { ...p, id: newId() }, afterIndex + 1 + k)));
+    this.scrollToPage(afterIndex + 1);
+  }
+
+  /** Miniature d'une page (panneau des pages). */
+  renderThumbnail(canvas: HTMLCanvasElement, pageId: ID, cssWidth: number) {
+    const scene = this.scenes.get(pageId);
+    if (scene) Renderer.renderThumbnail(canvas, scene, cssWidth, Math.min(2, window.devicePixelRatio || 1), this.backgrounds);
+  }
+
+  private onBackgroundReady(bg: PageBackground) {
+    for (const scene of this.scenes.values()) {
+      const b = scene.page.background;
+      if (!b || b.assetId !== bg.assetId) continue;
+      if (b.kind === 'pdf' && bg.kind === 'pdf' && b.pageIndex !== bg.pageIndex) continue;
+      scene.markFull();
+      scene.version++;
+      for (const fn of this.pageListeners) fn(scene.page.id);
+    }
+    this.renderer.invalidate();
+  }
+
   deletePage(pageId: ID) {
     if (this.layout.pages.length <= 1) return;
     this.transact((doc) => deletePage(doc, pageId));
@@ -244,10 +433,14 @@ export class Editor {
     this.onViewportChanged();
   }
 
+  /** Ajuste le zoom à la largeur de la page courante et la centre. */
   fitWidth() {
     const current = this.currentPageIndex();
-    const maxW = Math.max(...this.layout.pages.map((p) => p.width), 1);
-    this.viewport.zoom = Math.min((this.viewport.width - 32) / maxW, 1.6);
+    const page = this.layout.pages[current];
+    const width = page?.width ?? Math.max(...this.layout.pages.map((p) => p.width), 1);
+    this.viewport.zoom = Math.min((this.viewport.width - 32) / width, 1.6);
+    // Pages centrées sur x = 0 dans le monde.
+    this.viewport.panX = this.viewport.width / 2;
     this.scrollToPage(current);
   }
 
@@ -260,6 +453,7 @@ export class Editor {
     this.viewport.clamp(this.layout.bounds);
     this.renderer.viewportChanged();
     this.emitState();
+    if (this.sel) this.emitSelection();
     clearTimeout(this.saveViewTimer);
     this.saveViewTimer = setTimeout(() => this.saveView(), 400);
   }
@@ -292,6 +486,8 @@ export class Editor {
 
   private resize() {
     const rect = this.container.getBoundingClientRect();
+    // Garde le même point au centre de la vue quand la zone change de taille (panneau, rotation).
+    if (this.initialised) this.viewport.panX += (Math.max(1, rect.width) - this.viewport.width) / 2;
     this.viewport.width = Math.max(1, rect.width);
     this.viewport.height = Math.max(1, rect.height);
     this.viewport.dpr = window.devicePixelRatio || 1;
@@ -377,5 +573,16 @@ export class Editor {
     }
     this.renderer.invalidate();
     for (const id of changed) for (const fn of this.pageListeners) fn(id);
+    this.pruneSelection();
   };
+
+  /** Retire de la sélection les éléments disparus (annulation, gomme, autre appareil). */
+  private pruneSelection() {
+    const sel = this.sel;
+    if (!sel) return;
+    const scene = this.scenes.get(sel.pageId);
+    const ids = scene ? sel.ids.filter((id) => scene.items.has(id)) : [];
+    if (ids.length !== sel.ids.length) this.setSelection(ids.length ? { pageId: sel.pageId, ids } : null);
+    else this.emitSelection();
+  }
 }

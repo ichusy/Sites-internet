@@ -1,59 +1,43 @@
 import type { PageData } from '../../core/model/types';
 import { itemPath, type RenderItem } from '../scene';
+import { DOT_COLOR, LINE_COLOR, MARGIN_COLOR, PAPER_COLOR, templatePrimitives, type Segment } from './templates';
 
-export const PAPER_COLOR = '#ffffff';
-const LINE_COLOR = '#c9d4e5';
-const MARGIN_COLOR = '#f0b4b4';
-const DOT_COLOR = '#9aa8bd';
+export { PAPER_COLOR };
+
+function strokeSegments(ctx: CanvasRenderingContext2D, segs: Segment[], color: string, width: number) {
+  if (!segs.length) return;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  for (const [x1, y1, x2, y2] of segs) {
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+  }
+  ctx.stroke();
+}
 
 /**
- * Dessine le fond d'une page (papier + modèle) dans le repère de la page.
+ * Dessine le fond d'une page dans son repère : papier, éventuel fond importé
+ * (page de PDF ou image), puis le modèle (lignes, carreaux, points).
  * `scale` = pixels par point, pour garder des traits d'au moins un pixel.
  */
-export function drawTemplate(ctx: CanvasRenderingContext2D, page: PageData, scale: number) {
+export function drawTemplate(ctx: CanvasRenderingContext2D, page: PageData, scale: number, background?: CanvasImageSource | null) {
   ctx.fillStyle = PAPER_COLOR;
   ctx.fillRect(0, 0, page.width, page.height);
-  const { kind, spacing } = page.template;
-  if (kind === 'blank' || spacing <= 0) return;
+  if (background) {
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(background, 0, 0, page.width, page.height);
+  }
+  const prim = templatePrimitives(page);
   const hair = Math.max(0.5, 1 / scale);
   ctx.save();
-  if (kind === 'lined') {
-    const top = spacing * 3;
-    ctx.strokeStyle = LINE_COLOR;
-    ctx.lineWidth = hair;
-    ctx.beginPath();
-    for (let y = top; y < page.height - spacing / 2; y += spacing) {
-      ctx.moveTo(0, y);
-      ctx.lineTo(page.width, y);
-    }
-    ctx.stroke();
-    ctx.strokeStyle = MARGIN_COLOR;
-    ctx.beginPath();
-    const mx = spacing * 2.5;
-    ctx.moveTo(mx, 0);
-    ctx.lineTo(mx, page.height);
-    ctx.stroke();
-  } else if (kind === 'grid') {
-    ctx.strokeStyle = LINE_COLOR;
-    ctx.lineWidth = hair;
-    ctx.beginPath();
-    for (let x = spacing; x < page.width; x += spacing) {
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, page.height);
-    }
-    for (let y = spacing; y < page.height; y += spacing) {
-      ctx.moveTo(0, y);
-      ctx.lineTo(page.width, y);
-    }
-    ctx.stroke();
-  } else if (kind === 'dots') {
+  strokeSegments(ctx, prim.lines, LINE_COLOR, hair);
+  strokeSegments(ctx, prim.accents, MARGIN_COLOR, hair);
+  if (prim.dots.length) {
     ctx.fillStyle = DOT_COLOR;
     const r = Math.max(0.6, 1.2 / scale);
-    for (let y = spacing; y < page.height; y += spacing) {
-      for (let x = spacing; x < page.width; x += spacing) {
-        ctx.fillRect(x - r / 2, y - r / 2, r, r);
-      }
-    }
+    for (const [x, y] of prim.dots) ctx.fillRect(x - r / 2, y - r / 2, r, r);
   }
   ctx.restore();
 }
@@ -91,7 +75,7 @@ export function drawItem(ctx: CanvasRenderingContext2D, item: RenderItem, path: 
 }
 
 /**
- * Rendu vectoriel complet d'une page : modèle, puis surligneur, puis encre.
+ * Rendu vectoriel complet d'une page : fond, puis surligneur, puis encre.
  * Le surligneur est dessiné en premier pour passer derrière l'encre.
  */
 export function drawPageContent(
@@ -99,8 +83,9 @@ export function drawPageContent(
   page: PageData,
   items: RenderItem[],
   scale: number,
+  background?: CanvasImageSource | null,
 ) {
-  drawTemplate(ctx, page, scale);
+  drawTemplate(ctx, page, scale, background);
   for (const item of items) if (item.el.tool === 'highlighter') drawItem(ctx, item);
   for (const item of items) if (item.el.tool !== 'highlighter') drawItem(ctx, item);
 }

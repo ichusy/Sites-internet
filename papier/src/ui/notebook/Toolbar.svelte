@@ -1,7 +1,8 @@
 <script lang="ts">
   import {
-    ChevronLeft, Eraser, FilePlus, Highlighter, PanelRight, Pen, Redo2, SlidersHorizontal, Undo2, X,
+    ChevronLeft, ClipboardPaste, Eraser, FilePlus, Highlighter, LassoSelect, PanelRight, Pen, Redo2, SlidersHorizontal, Undo2, X,
   } from '@lucide/svelte';
+  import Menu, { type MenuItem } from '../common/Menu.svelte';
   import type { Brush, DashStyle } from '../../core/model/types';
   import type { EditorState } from '../../engine/Editor';
   import type { ToolName } from '../../engine/tools/types';
@@ -19,8 +20,13 @@
     onredo: () => void;
     onaddpage: () => void;
     onfit: () => void;
+    canPaste: boolean;
+    onpaste: () => void;
+    docItems: () => MenuItem[];
   }
-  let { title, tool = $bindable(), es, pagesOpen = $bindable(), onrename, onundo, onredo, onaddpage, onfit }: Props = $props();
+  let {
+    title, tool = $bindable(), es, pagesOpen = $bindable(), onrename, onundo, onredo, onaddpage, onfit, canPaste, onpaste, docItems,
+  }: Props = $props();
 
   const styles = settings.styles;
 
@@ -76,10 +82,18 @@
     <button type="button" class="icon-btn" class:active={tool === 'eraser'} aria-pressed={tool === 'eraser'} title="Gomme (E)" aria-label="Gomme" onclick={() => (tool = 'eraser')}>
       <Eraser size={19} />
     </button>
+    <button type="button" class="icon-btn" class:active={tool === 'lasso'} aria-pressed={tool === 'lasso'} title="Lasso (L)" aria-label="Lasso" onclick={() => (tool = 'lasso')}>
+      <LassoSelect size={19} />
+    </button>
 
     <span class="sep"></span>
 
-    {#if tool === 'eraser'}
+    {#if tool === 'lasso'}
+      <span class="hint">Entourez ou touchez des traits pour les sélectionner</span>
+      <button type="button" class="btn small" disabled={!canPaste} title="Coller (Ctrl+V)" onclick={onpaste}>
+        <ClipboardPaste size={16} /> Coller
+      </button>
+    {:else if tool === 'eraser'}
       {#each ERASER_SIZES as size (size)}
         <button type="button" class="icon-btn" class:active={styles.eraser.size === size} title="Taille {size}px" aria-label="Taille de gomme {size}" onclick={() => (styles.eraser.size = size)}>
           <span class="dot ring" style:width="{Math.min(22, 6 + size / 3)}px" style:height="{Math.min(22, 6 + size / 3)}px"></span>
@@ -107,6 +121,7 @@
       {/each}
     {/if}
 
+    {#if tool !== 'lasso'}
     <Popover label="Réglages de l’outil">
       {#snippet trigger()}<SlidersHorizontal size={18} />{/snippet}
       {#if tool === 'eraser'}
@@ -166,6 +181,7 @@
         </div>
       {/if}
     </Popover>
+    {/if}
   </div>
 
   <div class="group right">
@@ -178,6 +194,7 @@
     <button type="button" class="icon-btn" class:active={pagesOpen} aria-pressed={pagesOpen} title="Pages" aria-label="Panneau des pages" onclick={() => (pagesOpen = !pagesOpen)}>
       <PanelRight size={19} />
     </button>
+    <Menu items={docItems} label="Importer, exporter…" />
   </div>
 </header>
 
@@ -258,6 +275,16 @@
   }
   .zoom:hover {
     background: var(--surface-2);
+  }
+  .hint {
+    font-size: 13px;
+    color: var(--muted);
+    padding: 0 8px;
+    white-space: nowrap;
+  }
+  .btn.small {
+    padding: 5px 10px;
+    font-size: 14px;
   }
   .page-indicator {
     font-size: 13px;
@@ -340,6 +367,7 @@
       flex: 0 0 auto;
     }
     .title,
+    .hint,
     .page-indicator {
       display: none;
     }

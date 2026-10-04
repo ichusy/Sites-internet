@@ -2,6 +2,7 @@ import type { ID } from '../../core/model/types';
 import type { PageLayout } from '../layout';
 import type { PageScene, RenderItem } from '../scene';
 import type { Viewport } from '../Viewport';
+import type { BackgroundStore } from './backgrounds';
 import { drawItem, drawPageContent } from './draw';
 
 /** Taille maximale (en pixels) du cache bitmap d'une page ; au-delà, rendu vectoriel direct. */
@@ -15,6 +16,7 @@ export interface RenderSource {
   viewport: Viewport;
   layouts(): PageLayout[];
   scene(id: ID): PageScene | undefined;
+  backgrounds: BackgroundStore;
 }
 
 /** Trait en cours, dessiné sur le calque « encre fraîche ». */
@@ -49,6 +51,8 @@ export class Renderer {
   wet: WetStroke | null = null;
   /** Curseur de gomme en pixels CSS. */
   cursor: { x: number; y: number; r: number } | null = null;
+  /** Dessin supplémentaire sur le calque d'encre fraîche (lasso, sélection), en pixels physiques. */
+  overlay: ((ctx: CanvasRenderingContext2D) => void) | null = null;
   deskColor = '#e9e6e0';
 
   constructor(
@@ -139,13 +143,15 @@ export class Renderer {
         scene.pending = [];
         const items = scene
           .query([vx0 - l.x, vy0 - l.y, vx1 - l.x, vy1 - l.y])
+          .filter((i) => !scene.hidden.has(i.id))
           .sort((a, b) => a.z - b.z);
+        const bg = this.background(scene, target);
         ctx.save();
         ctx.beginPath();
         ctx.rect(sx, sy, sw, sh);
         ctx.clip();
         ctx.setTransform(target, 0, 0, target, sx, sy);
-        drawPageContent(ctx, scene.page, items, target);
+        drawPageContent(ctx, scene.page, items, target, bg);
         ctx.restore();
         continue;
       }
@@ -157,7 +163,7 @@ export class Renderer {
         this.caches.set(l.id, cache);
       } else if (scene.dirty === 'append') {
         cache.ctx.setTransform(cache.scale, 0, 0, cache.scale, 0, 0);
-        for (const item of scene.pending) drawItem(cache.ctx, item);
+        for (const item of scene.pending) if (!scene.hidden.has(item.id)) drawItem(cache.ctx, item);
         scene.pending = [];
         scene.dirty = 'clean';
       }
@@ -190,10 +196,15 @@ export class Renderer {
     canvas.height = Math.max(1, Math.ceil(page.height * scale));
     const ctx = canvas.getContext('2d', { alpha: false })!;
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    drawPageContent(ctx, page, scene.sorted(), scale);
+    drawPageContent(ctx, page, scene.visible(), scale, this.background(scene, scale));
     scene.dirty = 'clean';
     scene.pending = [];
     return { canvas, ctx, scale, lastUsed: performance.now() };
+  }
+
+  private background(scene: PageScene, scale: number) {
+    const { page } = scene;
+    return page.background ? this.src.backgrounds.get(page.background, page.width, page.height, scale) : null;
   }
 
   private evict(visible: Set<ID>) {
@@ -226,6 +237,11 @@ export class Renderer {
         ctx.restore();
       }
     }
+    if (this.overlay) {
+      ctx.save();
+      this.overlay(ctx);
+      ctx.restore();
+    }
     if (this.cursor) {
       ctx.save();
       ctx.lineWidth = dpr;
@@ -240,7 +256,7 @@ export class Renderer {
   }
 
   /** Miniature d'une page dans un canvas fourni. */
-  static renderThumbnail(canvas: HTMLCanvasElement, scene: PageScene, cssWidth: number, dpr: number) {
+  static renderThumbnail(canvas: HTMLCanvasElement, scene: PageScene, cssWidth: number, dpr: number, backgrounds: BackgroundStore) {
     const scale = (cssWidth * dpr) / scene.page.width;
     canvas.width = Math.round(scene.page.width * scale);
     canvas.height = Math.round(scene.page.height * scale);
@@ -248,6 +264,8 @@ export class Renderer {
     canvas.style.height = `${(scene.page.height / scene.page.width) * cssWidth}px`;
     const ctx = canvas.getContext('2d')!;
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
-    drawPageContent(ctx, scene.page, scene.sorted(), scale);
+    const { page } = scene;
+    const bg = page.background ? backgrounds.get(page.background, page.width, page.height, scale) : null;
+    drawPageContent(ctx, page, scene.sorted(), scale, bg);
   }
 }

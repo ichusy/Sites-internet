@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { Copy, FolderInput, Pencil, Star, Trash2 } from '@lucide/svelte';
+  import { Archive, Copy, FileDown, FolderInput, Pencil, Star, Trash2 } from '@lucide/svelte';
+  import { exportNotebookArchive, exportNotebookPdf } from '../actions';
   import type { NotebookRecord } from '../../core/model/types';
   import { deleteNotebook, duplicateNotebook, toggleFavorite, updateNotebook } from '../../core/storage/library';
   import { askConfirm, askFolder, askNotebook } from '../common/dialogs.svelte';
@@ -31,6 +32,10 @@
     { label: nb.favorite ? 'Retirer des favoris' : 'Ajouter aux favoris', icon: Star, action: () => toggleFavorite(nb.id) },
     { label: 'Dupliquer', icon: Copy, action: () => duplicateNotebook(nb.id) },
     { label: 'Déplacer vers…', icon: FolderInput, action: move },
+    { separator: true },
+    { label: 'Exporter en PDF', icon: FileDown, action: () => exportNotebookPdf(nb.id, true) },
+    { label: 'Exporter en PDF sans annotations', icon: FileDown, action: () => exportNotebookPdf(nb.id, false) },
+    { label: 'Sauvegarder (.papier)', icon: Archive, action: () => exportNotebookArchive(nb) },
     { separator: true },
     { label: 'Supprimer', icon: Trash2, danger: true, action: remove },
   ];

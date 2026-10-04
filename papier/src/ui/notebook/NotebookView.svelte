@@ -4,7 +4,12 @@
   import { db } from '../../core/storage/db';
   import { updateNotebook } from '../../core/storage/library';
   import { openNotebook, type OpenNotebook } from '../../core/storage/notebookStore';
-  import { Editor, type EditorState } from '../../engine/Editor';
+  import { Archive, FileDown, FileInput } from '@lucide/svelte';
+  import { Editor, hasClipboard, type EditorState, type SelectionInfo } from '../../engine/Editor';
+  import { pickFiles } from '../../io/files';
+  import { exportNotebookArchive, exportNotebookPdf, pagesForInsertion } from '../actions';
+  import type { MenuItem } from '../common/Menu.svelte';
+  import SelectionBar from './SelectionBar.svelte';
   import type { ToolName } from '../../engine/tools/types';
   import { askText } from '../common/dialogs.svelte';
   import { links } from '../router.svelte';
@@ -24,6 +29,9 @@
   let tool = $state<ToolName>('pen');
   let pagesOpen = $state(readPanelPref());
   let container = $state<HTMLDivElement>();
+  let selection = $state<SelectionInfo | null>(null);
+  let canPaste = $state(hasClipboard());
+  let dropping = $state(false);
 
   function readPanelPref() {
     try {
@@ -54,7 +62,15 @@
       }
       await tick();
       const ed = new Editor(container!, opened, settings.styles);
-      unsub = ed.onState((s) => (es = s));
+      const offState = ed.onState((s) => {
+        es = s;
+        canPaste = hasClipboard();
+      });
+      const offSel = ed.onSelection((s) => (selection = s));
+      unsub = () => {
+        offState();
+        offSel();
+      };
       editor = ed;
     })();
 
@@ -104,6 +120,33 @@
     if (ed && title) ed.setTitle(title);
   });
 
+  async function paste() {
+    if (!editor) return;
+    tool = 'lasso';
+    await tick();
+    editor.paste();
+  }
+
+  async function insertFiles(files: File[]) {
+    const pages = await pagesForInsertion(files);
+    if (pages.length) editor?.insertPages(pages);
+  }
+
+  const docItems = (): MenuItem[] => [
+    { label: 'Insérer un PDF ou des images…', icon: FileInput, action: async () => insertFiles(await pickFiles('.pdf,application/pdf,image/*')) },
+    { separator: true },
+    { label: 'Exporter en PDF', icon: FileDown, action: () => editor && exportNotebookPdf(editor.doc, true) },
+    { label: 'Exporter en PDF sans annotations', icon: FileDown, action: () => editor && exportNotebookPdf(editor.doc, false) },
+    { label: 'Sauvegarder (.papier)', icon: Archive, action: () => record && exportNotebookArchive($state.snapshot(record)) },
+  ];
+
+  function onDrop(e: DragEvent) {
+    e.preventDefault();
+    dropping = false;
+    const files = [...(e.dataTransfer?.files ?? [])];
+    if (files.length) void insertFiles(files);
+  }
+
   function onKey(e: KeyboardEvent) {
     if (!editor) return;
     const t = e.target as HTMLElement | null;
@@ -118,8 +161,30 @@
     } else if (mod && key === 'y') {
       e.preventDefault();
       editor.redo();
+    } else if (mod && key === 'c' && editor.selection()) {
+      e.preventDefault();
+      editor.copySelection();
+    } else if (mod && key === 'x' && editor.selection()) {
+      e.preventDefault();
+      editor.cutSelection();
+    } else if (mod && key === 'd' && editor.selection()) {
+      e.preventDefault();
+      editor.duplicateSelection();
+    } else if (mod && key === 'v' && hasClipboard()) {
+      e.preventDefault();
+      void paste();
+    } else if (mod && key === 'a') {
+      e.preventDefault();
+      tool = 'lasso';
+      void tick().then(() => editor?.selectAll());
+    } else if ((key === 'delete' || key === 'backspace') && editor.selection()) {
+      e.preventDefault();
+      editor.deleteSelection();
+    } else if (key === 'escape' && editor.selection()) {
+      editor.clearSelection();
     } else if (!mod && !e.altKey) {
       if (key === 'p') tool = 'pen';
+      else if (key === 'l') tool = 'lasso';
       else if (key === 'h') tool = 'highlighter';
       else if (key === 'e') tool = 'eraser';
       else if (key === '+' || key === '=') editor.zoomBy(1.25);
@@ -150,9 +215,30 @@
       onredo={() => editor?.redo()}
       onaddpage={() => editor?.addPage()}
       onfit={() => editor?.fitWidth()}
+      {canPaste}
+      onpaste={paste}
+      {docItems}
     />
     <div class="workspace">
-      <div class="canvas-host" bind:this={container} data-tool={tool}></div>
+      <div
+        class="canvas-host"
+        class:dropping
+        bind:this={container}
+        data-tool={tool}
+        role="application"
+        aria-label="Page du carnet"
+        ondragover={(e) => {
+          if (e.dataTransfer?.types.includes('Files')) {
+            e.preventDefault();
+            dropping = true;
+          }
+        }}
+        ondragleave={() => (dropping = false)}
+        ondrop={onDrop}
+      ></div>
+      {#if editor && selection && tool === 'lasso'}
+        <SelectionBar {editor} info={selection} />
+      {/if}
       {#if editor && pagesOpen}
         <PagesPanel {editor} current={es.currentPage} pageCount={es.pageCount} />
       {/if}
@@ -183,6 +269,13 @@
   }
   .canvas-host[data-tool='eraser'] {
     cursor: none;
+  }
+  .canvas-host[data-tool='lasso'] {
+    cursor: default;
+  }
+  .canvas-host.dropping {
+    outline: 3px dashed var(--accent);
+    outline-offset: -8px;
   }
   .missing {
     margin: auto;

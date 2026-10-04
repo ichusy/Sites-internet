@@ -62,6 +62,8 @@ export class PageScene {
   pending: RenderItem[] = [];
   /** Incrémenté à chaque changement (miniatures). */
   version = 0;
+  /** Éléments masqués du rendu principal (en cours de déplacement par le lasso). */
+  hidden = new Set<ID>();
 
   constructor(public page: PageData) {}
 
@@ -125,6 +127,17 @@ export class PageScene {
   sorted(): RenderItem[] {
     if (!this.sortedCache) this.sortedCache = [...this.items.values()].sort((a, b) => a.z - b.z);
     return this.sortedCache;
+  }
+
+  /** Éléments triés, sans ceux masqués. */
+  visible(): RenderItem[] {
+    const all = this.sorted();
+    return this.hidden.size ? all.filter((i) => !this.hidden.has(i.id)) : all;
+  }
+
+  setHidden(ids: Iterable<ID>) {
+    this.hidden = new Set(ids);
+    this.markFull();
   }
 
   query(b: BBox): RenderItem[] {

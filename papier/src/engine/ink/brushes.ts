@@ -42,45 +42,78 @@ function brushOptions(brush: Brush, width: number, realPressure: boolean): Strok
   }
 }
 
+/**
+ * Cible abstraite de tracé : Path2D (écran) ou opérateurs PDF (export).
+ * Ainsi l'écran et le PDF exporté partagent exactement la même géométrie.
+ */
+export interface PathSink {
+  moveTo(x: number, y: number): void;
+  lineTo(x: number, y: number): void;
+  quadTo(cx: number, cy: number, x: number, y: number): void;
+  close(): void;
+}
+
 function toInput(pts: Float32Array): number[][] {
   const out: number[][] = [];
   for (let i = 0; i < pts.length; i += POINT_STRIDE) out.push([pts[i], pts[i + 1], pts[i + 2]]);
   return out;
 }
 
-/** Contour rempli (épaisseur variable) d'un trait de stylo. */
-export function outlinePath(pts: Float32Array, brush: Brush, width: number, realPressure: boolean, complete: boolean): Path2D {
-  const outline = getStroke(toInput(pts), { ...brushOptions(brush, width, realPressure), last: complete });
-  const path = new Path2D();
+/** Polygone du contour (épaisseur variable) d'un trait de stylo. */
+export function strokeOutline(pts: Float32Array, brush: Brush, width: number, realPressure: boolean, complete: boolean): number[][] {
+  return getStroke(toInput(pts), { ...brushOptions(brush, width, realPressure), last: complete });
+}
+
+/** Contour fermé, lissé par courbes quadratiques passant par les milieux. */
+export function traceOutline(outline: number[][], sink: PathSink) {
   const n = outline.length;
-  if (n < 2) return path;
-  // Lissage du contour par courbes quadratiques passant par les milieux.
-  path.moveTo(outline[0][0], outline[0][1]);
+  if (n < 2) return;
+  sink.moveTo(outline[0][0], outline[0][1]);
   for (let i = 0; i < n; i++) {
     const [x0, y0] = outline[i];
     const [x1, y1] = outline[(i + 1) % n];
-    path.quadraticCurveTo(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2);
+    sink.quadTo(x0, y0, (x0 + x1) / 2, (y0 + y1) / 2);
   }
-  path.closePath();
-  return path;
+  sink.close();
 }
 
 /** Ligne médiane lissée (surligneur, traits pointillés). */
-export function centerlinePath(pts: Float32Array): Path2D {
-  const path = new Path2D();
+export function traceCenterline(pts: Float32Array, sink: PathSink) {
   const n = pts.length / POINT_STRIDE;
-  if (n === 0) return path;
-  path.moveTo(pts[0], pts[1]);
+  if (n === 0) return;
+  sink.moveTo(pts[0], pts[1]);
   if (n === 1) {
-    path.lineTo(pts[0] + 0.01, pts[1]);
-    return path;
+    sink.lineTo(pts[0] + 0.01, pts[1]);
+    return;
   }
   for (let i = 1; i < n - 1; i++) {
     const j = i * POINT_STRIDE;
     const k = j + POINT_STRIDE;
-    path.quadraticCurveTo(pts[j], pts[j + 1], (pts[j] + pts[k]) / 2, (pts[j + 1] + pts[k + 1]) / 2);
+    sink.quadTo(pts[j], pts[j + 1], (pts[j] + pts[k]) / 2, (pts[j + 1] + pts[k + 1]) / 2);
   }
   const last = (n - 1) * POINT_STRIDE;
-  path.lineTo(pts[last], pts[last + 1]);
+  sink.lineTo(pts[last], pts[last + 1]);
+}
+
+function path2DSink(path: Path2D): PathSink {
+  return {
+    moveTo: (x, y) => path.moveTo(x, y),
+    lineTo: (x, y) => path.lineTo(x, y),
+    quadTo: (cx, cy, x, y) => path.quadraticCurveTo(cx, cy, x, y),
+    close: () => path.closePath(),
+  };
+}
+
+/** Contour rempli (épaisseur variable) d'un trait de stylo, pour Canvas. */
+export function outlinePath(pts: Float32Array, brush: Brush, width: number, realPressure: boolean, complete: boolean): Path2D {
+  const path = new Path2D();
+  traceOutline(strokeOutline(pts, brush, width, realPressure, complete), path2DSink(path));
+  return path;
+}
+
+/** Ligne médiane lissée, pour Canvas. */
+export function centerlinePath(pts: Float32Array): Path2D {
+  const path = new Path2D();
+  traceCenterline(pts, path2DSink(path));
   return path;
 }

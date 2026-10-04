@@ -1,5 +1,6 @@
 <script lang="ts">
   import DialogHost from './common/DialogHost.svelte';
+  import Toasts from './common/Toasts.svelte';
   import Library from './library/Library.svelte';
   import NotebookView from './notebook/NotebookView.svelte';
   import { router } from './router.svelte';
@@ -16,3 +17,4 @@
 {/if}
 
 <DialogHost />
+<Toasts />

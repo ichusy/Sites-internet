@@ -1,7 +1,7 @@
 import { db } from './db';
 import { newId } from '../model/ids';
 import { createNotebookDoc, deleteNotebookDoc } from './notebookStore';
-import type { CoverSpec, FolderRecord, ID, NotebookRecord, TemplateRef } from '../model/types';
+import type { CoverSpec, FolderRecord, ID, NotebookRecord, PageData, TemplateRef } from '../model/types';
 
 // ── Dossiers ─────────────────────────────────────────────
 
@@ -52,6 +52,8 @@ export interface NewNotebookOptions {
   cover: CoverSpec;
   paper: { width: number; height: number };
   template: TemplateRef;
+  /** Pages initiales (import) ; sinon une page vierge au format `paper`. */
+  pages?: Omit<PageData, 'id'>[];
 }
 
 export async function createNotebook(opts: NewNotebookOptions): Promise<NotebookRecord> {
@@ -71,7 +73,7 @@ export async function createNotebook(opts: NewNotebookOptions): Promise<Notebook
     updatedAt: now,
     openedAt: 0,
   };
-  record.pageCount = await createNotebookDoc(record);
+  record.pageCount = await createNotebookDoc(record, { pages: opts.pages });
   await db.notebooks.add(record);
   return record;
 }
@@ -98,7 +100,7 @@ export async function duplicateNotebook(id: ID): Promise<NotebookRecord | null> 
     updatedAt: now,
     openedAt: 0,
   };
-  record.pageCount = await createNotebookDoc(record, src.id);
+  record.pageCount = await createNotebookDoc(record, { from: src.id });
   await db.notebooks.add(record);
   return record;
 }

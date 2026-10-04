@@ -1,8 +1,10 @@
 <script lang="ts">
   import {
-    BookPlus, ChevronRight, Clock, Folder, FolderInput, FolderPlus, Library as LibraryIcon,
-    Menu as MenuIcon, Pencil, Search, Settings, Star, Trash2,
+    Archive, ArchiveRestore, BookPlus, ChevronRight, Clock, Folder, FolderInput, FolderPlus, Library as LibraryIcon,
+    Menu as MenuIcon, Pencil, Search, Settings, Star, Trash2, Upload,
   } from '@lucide/svelte';
+  import { backupLibrary, importIntoLibrary, pickAndImport } from '../actions';
+  import { pickFiles } from '../../io/files';
   import { liveQuery } from 'dexie';
   import { db } from '../../core/storage/db';
   import { createFolder, createNotebook, deleteFolder, moveFolder, renameFolder } from '../../core/storage/library';
@@ -123,7 +125,24 @@
     ];
   }
 
+  async function importFiles(files?: File[]) {
+    const nb = files ? await importIntoLibrary(files, targetFolder) : await pickAndImport(targetFolder);
+    if (nb) go(links.notebook(nb.id));
+  }
+
+  let dropping = $state(false);
+
+  function onDrop(e: DragEvent) {
+    e.preventDefault();
+    dropping = false;
+    const files = [...(e.dataTransfer?.files ?? [])];
+    if (files.length) void importFiles(files);
+  }
+
   const settingsItems = (): MenuItem[] => [
+    { header: 'Données' },
+    { label: 'Sauvegarder la bibliothèque', icon: Archive, action: backupLibrary },
+    { label: 'Restaurer une sauvegarde…', icon: ArchiveRestore, action: async () => importFiles(await pickFiles('.papier,application/zip', true)) },
     { header: 'Thème' },
     { label: 'Automatique', checked: settings.theme === 'system', action: () => (settings.theme = 'system') },
     { label: 'Clair', checked: settings.theme === 'light', action: () => (settings.theme = 'light') },
@@ -167,7 +186,19 @@
   </aside>
   <button type="button" class="scrim" aria-label="Fermer le menu" onclick={closeSidebar}></button>
 
-  <main>
+  <main
+    class:dropping
+    ondragover={(e) => {
+      if (e.dataTransfer?.types.includes('Files')) {
+        e.preventDefault();
+        dropping = true;
+      }
+    }}
+    ondragleave={(e) => {
+      if (e.currentTarget === e.target) dropping = false;
+    }}
+    ondrop={onDrop}
+  >
     <header class="topbar">
       <button type="button" class="icon-btn menu-btn" aria-label="Menu" onclick={() => (sidebarOpen = true)}>
         <MenuIcon size={20} />
@@ -178,6 +209,9 @@
         <input type="search" placeholder="Rechercher un carnet ou un dossier" bind:value={search} />
       </label>
       <div class="spacer"></div>
+      <button type="button" class="btn" title="Importer des PDF, des images ou une sauvegarde .papier" onclick={() => importFiles()}>
+        <Upload size={16} /> <span class="label">Importer</span>
+      </button>
       <button type="button" class="btn" onclick={() => newFolder()}>
         <FolderPlus size={16} /> <span class="label">Dossier</span>
       </button>
@@ -249,7 +283,11 @@
             <p>Les carnets que vous ouvrez apparaîtront ici.</p>
           {:else}
             <p>Ce dossier est vide.</p>
-            <button type="button" class="btn primary" onclick={newNotebook}><BookPlus size={16} /> Créer un carnet</button>
+            <div class="empty-actions">
+              <button type="button" class="btn primary" onclick={newNotebook}><BookPlus size={16} /> Créer un carnet</button>
+              <button type="button" class="btn" onclick={() => importFiles()}><Upload size={16} /> Importer un PDF</button>
+            </div>
+            <p class="hint-drop">Vous pouvez aussi glisser des PDF ou des images ici.</p>
           {/if}
         </div>
       {/if}
@@ -455,6 +493,20 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 28px 22px;
+  }
+  main.dropping {
+    outline: 3px dashed var(--accent);
+    outline-offset: -8px;
+    background: var(--accent-soft);
+  }
+  .empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+  .hint-drop {
+    font-size: 13px;
   }
   .empty {
     display: flex;
